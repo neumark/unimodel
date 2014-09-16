@@ -26,3 +26,5 @@ class Protocol(object):
         else:
             protocol = self.lookup_by_name(protocol_name_or_id)
         self.id, self.name, self.factory =  protocol
+
+default_protocol_factory=TBinaryProtocol.TBinaryProtocolFactory()

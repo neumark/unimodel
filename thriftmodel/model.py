@@ -4,7 +4,7 @@ from functools import wraps
 from thrift.Thrift import TType, TMessageType, TException, TApplicationException
 from thrift.protocol.TBase import TBase, TExceptionBase
 from thrift.transport import TTransport
-
+from thriftmodel.protocol import default_protocol_factory
 class ValidationException(Exception):
     pass
 
@@ -201,14 +201,14 @@ class ThriftModel(TBase):
     def __ne__(self, other):
         return not (self == other)
 
-    def serialize(self, protocol_factory=TBinaryProtocol.TBinaryProtocolFactory()):
+    def serialize(self, protocol_factory=default_protocol_factory):
         return serialize(self, protocol_factory)
 
     def _set_value_by_thrift_field_id(self, field_id, value):
         self._model_data[field_id] = value
 
     @classmethod
-    def deserialize(cls, stream, protocol_factory=TBinaryProtocol.TBinaryProtocolFactory()):
+    def deserialize(cls, stream, protocol_factory=default_protocol_factory):
         return deserialize(cls, stream, protocol_factory)
 
     @classmethod

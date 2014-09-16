@@ -1,4 +1,4 @@
-from thriftmodel.protocol_factory import Protocol
+from thriftmodel.protocol import Protocol
 from thriftmodel.model import ThriftModel, ThriftField, StringField
 
 class DynamicClassNotFoundException(Exception):
