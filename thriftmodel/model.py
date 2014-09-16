@@ -133,14 +133,14 @@ def serialize_json(obj):
 def serialize_compact(obj):
     return serialize(obj, protocol_factory=TCompactProtocol.TCompactProtocolFactory())
 
-def serialize(obj, protocol_factory):
+def serialize(obj, protocol_factory=default_protocol_factory):
     transport = TTransport.TMemoryBuffer()
     protocol = protocol_factory.getProtocol(transport)
     write_to_stream(obj, protocol)
     transport._buffer.seek(0)
     return transport._buffer.getvalue()
 
-def deserialize(cls, stream, protocol_factory):
+def deserialize(cls, stream, protocol_factory=default_protocol_factory):
     obj = cls()
     transport = TTransport.TMemoryBuffer()
     transport._buffer.write(stream)
