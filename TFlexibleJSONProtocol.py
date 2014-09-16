@@ -64,6 +64,7 @@ class ReadContext(object):
 class TFlexibleJSONProtocol(TSimpleJSONProtocol):
     def __init__(self, trans):
         TSimpleJSONProtocol.__init__(self, trans)
+        self.allow_unknown_fields = True
         self.trans = trans
         self.read_context = None
         self.CONTAINER_CONSTRUCTORS = {
@@ -128,7 +129,7 @@ class TFlexibleJSONProtocol(TSimpleJSONProtocol):
 
     def readStruct(self, target_obj, thrift_spec):
         # if target_obj isa ThriftModel, we have access to
-        # validators and the is_required field.
+        # validators and the required field.
         if self.read_context is None:
            self.parse_json(thrift_spec)
         json_obj = self.read_context.current_object()
@@ -149,6 +150,14 @@ class TFlexibleJSONProtocol(TSimpleJSONProtocol):
                 target_obj._set_value_by_thrift_field_id(field_id, parsed_value)
             else:
                 setattr(target_obj, thrift_field_name, parsed_value)
+        if self.allow_unknown_fields:
+            self.validation_assert(len(unknown_fields) ==  0,
+                "unknown fields: %s" % ", ".join(unknown_fields))
+        if hasattr(obj, 'validate'):
+            try:
+                obj.validate()
+            except Exception, e:
+                raise ReadValidationException(str(e), self.read_context)
 
     def readContainer(self, field_type, key, spec, raw_value):
         self.read_context.push_context(spec, key, raw_value)

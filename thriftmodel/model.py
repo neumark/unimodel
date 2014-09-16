@@ -4,65 +4,11 @@ from functools import wraps
 from thrift.Thrift import TType, TMessageType, TException, TApplicationException
 from thrift.protocol.TBase import TBase, TExceptionBase
 from thrift.transport import TTransport
-from thrift.protocol import TBinaryProtocol, TCompactProtocol, TJSONProtocol
-"""
 
-struct A {
-    1: i64 a,
-    2: BannedClient c,
-    3: i64 d=6,
-    4: list<string> e,
-    5: list<BannedClient> f
-    6: map<i64, string> g
-    7: list<map<i64, list<BannedClient>>> h
-}
-
- compiles to:
-
-  thrift_spec = (
-    None, # 0
-    (1, TType.I64, 'a', None, None, ), # 1
-    (2, TType.STRUCT, 'c', (BannedClient, BannedClient.thrift_spec), None, ), # 2
-    (3, TType.I64, 'd', None, 6, ), # 3
-    (4, TType.LIST, 'e', (TType.STRING,None), None, ), # 4
-    (5, TType.LIST, 'f', (TType.STRUCT,(BannedClient, BannedClient.thrift_spec)), None, ), # 5
-    (6, TType.MAP, 'g', (TType.I64,None,TType.STRING,None), None, ), # 6
-    (7, TType.LIST, 'h', (TType.MAP,(TType.I64,None,TType.LIST,(TType.STRUCT,(BannedClient, BannedClient.thrift_spec)))), None, ), # 7
-  )
-"""
-
-class Protocol(object):
-
-    factories = [
-        ('binary', TBinaryProtocol.TBinaryProtocolFactory()),
-        ('json', TJSONProtocol.TJSONProtocolFactory()),
-        ('simple_json', TJSONProtocol.TSimpleJSONProtocolFactory()),
-        ('compact', TCompactProtocol.TCompactProtocolFactory())
-    ]
-
-    @classmethod
-    def lookup_by_id(cls, protocol_id):
-        return (protocol_id, ) + cls.factories[protocol_id]
-
-    @classmethod
-    def lookup_by_name(cls, protocol_name):
-        for i in xrange(0, len(cls.factories)):
-            if cls.factories[i][0] == protocol_name:
-                return (i, ) + cls.factories[i]
-        return None
-
-    def __init__(self, protocol_name_or_id):
-        if type(protocol_name_or_id) == int:
-            protocol = self.lookup_by_id(protocol_name_or_id)
-        else:
-            protocol = self.lookup_by_name(protocol_name_or_id)
-        self.id, self.name, self.factory =  protocol
-
-
-class UndefinedFieldException(Exception):
+class ValidationException(Exception):
     pass
 
-class DynamicClassNotFoundException(Exception):
+class UndefinedFieldException(Exception):
     pass
 
 class ProtocolDebugger(object):
@@ -107,7 +53,11 @@ class ProtocolDebugger(object):
 class ThriftField(object):
     _field_creation_counter = 0
 
-    def __init__(self, field_type_id, thrift_field_name=None, field_id=-1, default=None):
+    def __init__(self, field_type_id,
+            thrift_field_name=None,
+            field_id=-1,
+            default=None,
+            required=False):
         self.creation_count = ThriftField._field_creation_counter
         ThriftField._field_creation_counter += 1
         self.field_type_id = field_type_id
@@ -303,32 +253,11 @@ class ThriftModel(TBase):
     def to_tuple(cls):
         return (-1, TType.STRUCT, cls.__name__, (cls, cls.thrift_spec), None,)
 
+    def validate(self):
+        # check to make sure required fields are set
+        for k, v in self._fields_by_name.iteritems():
+            if v.required and self._model_data.get(v.field_id, None) is None:
+                raise ValidationException("Required field %s (id %) not set" % (k, v.field_id))
+
 class RecursiveThriftModel(ThriftModel):
     thrift_spec = [None]
-
-class DynamicObject(ThriftModel):
-    protocol = ThriftField(TType.I16)
-    class_name = StringField()
-    data = StringField()
-
-    @classmethod
-    def from_object(cls, obj, protocol_name_or_id=0):
-        protocol = Protocol(protocol_name_or_id)
-        return cls(protocol.id, obj.__class__.__name__, obj.serialize(protocol.factory))
-
-    def unpack(self, class_hint=None, module_hint=None):
-        if class_hint is not None:
-            cls = class_hint
-        else:
-            dict_candidates = []
-            if module_hint is not None:
-                dict_candidates.append(sys.modules[module_hint].__dict__)
-            else:
-                # Use the locals of the calling stack frame
-                dict_candidates.append(sys._getframe(1).f_locals)
-            dict_candidates.append(globals())
-            for candidate in dict_candidates:
-                cls = candidate.get(self.class_name, None)
-                if cls is not None:
-                    return cls.deserialize(self.data, Protocol(self.protocol).factory)
-        raise DynamicClassNotFoundException(self.class_name)
