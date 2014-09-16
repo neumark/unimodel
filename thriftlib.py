@@ -163,10 +163,12 @@ class MapField(ParametricThriftField):
         self.value_type_parameter = value_type_parameter
 
     def get_type_parameter(self):
-        return (self.key_type_parameter.thrift_field_name,
-                self.key_type_parameter.to_tuple()[1:],
-                self.value_type_parameter.thrift_field_name,
-                self.value_type_parameter.to_tuple()[1:])
+        key_spec = self.key_type_parameter.to_tuple()
+        value_spec = self.value_type_parameter.to_tuple()
+        return (key_spec[1],
+                key_spec[3],
+                value_spec[1],
+                value_spec[3])
 
 
 def serialize_simplejson(obj):

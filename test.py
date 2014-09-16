@@ -24,7 +24,8 @@ TreeNode.make_thrift_spec({
 
 
 #print_spec(TreeNode)
-#print_spec(NodeData)
+print_spec(NodeData)
+
 data = TreeNode(
         children=[
             TreeNode(
@@ -32,8 +33,9 @@ data = TreeNode(
                     data=NodeData(
                         name="josef",
                         age=33,
-                        skills={"guitar": 5, "swimming": 10}),
-                    
+                        skills={
+                            "guitar": 5,
+                            "swimming": 10}),
                 ),
             TreeNode(
                 data=NodeData(name="julia", age=27)),
