@@ -66,18 +66,26 @@ class DynamicClassNotFoundException(Exception):
     pass
 
 class ProtocolDebugger(object):
-    def __init__(self, protocol_factory, log_protocol=True, log_transport=True, stream=sys.stdout):
+    def __init__(self, protocol_factory,stream=sys.stdout, log_protocol=True, log_transport=True):
         self.protocol_factory = protocol_factory
         self.log_protocol = log_protocol
         self.log_transport = log_transport
         self.stream = stream
+        self.indent_counter = 0
+        self.call_counter = 0
 
-    def wrap_method(self, class_name, function_name, func):
+    def wrap_method(self, obj, class_name, function_name, func):
+        # print call id so we can sort
+        # indent_counter a single value, not per obj
         @wraps(func)
         def wrapper(*args, **kwargs):
-            response = func(*args, **kwargs)
+            self.indent_counter += 1
+            current_call_counter = self.call_counter
+            self.call_counter += 1
             str_args = ["%s" % str(a) for a in args] + ["%s=%s" % (str(k), str(v)) for k,v in kwargs.iteritems()]
-            self.stream.write("%s.%s(%s) -> %s\n" % (class_name, function_name, ", ".join(str_args), response))
+            response = func(*args, **kwargs)
+            self.indent_counter -= 1
+            self.stream.write("%04d %s%s.%s(%s) -> %s\n" % (current_call_counter, " " * self.indent_counter, class_name, function_name, ", ".join(str_args), response))
             return response
         return wrapper
 
@@ -92,7 +100,7 @@ class ProtocolDebugger(object):
             for name in dir(obj):
                 fn = getattr(obj, name)
                 if hasattr(fn, '__call__'):
-                    setattr(obj, name, self.wrap_method(obj.__class__.__name__, name, fn))
+                    setattr(obj, name, self.wrap_method(obj, obj.__class__.__name__, name, fn))
         return protocol
 
 
@@ -151,13 +159,13 @@ class ListField(ParametricThriftField):
 class MapField(ParametricThriftField):
     def __init__(self, key_type_parameter, value_type_parameter, **kwargs):
         super(MapField, self).__init__(TType.MAP, None, **kwargs)
-        self.key_type_parameter = key_type_parameter,
+        self.key_type_parameter = key_type_parameter
         self.value_type_parameter = value_type_parameter
 
     def get_type_parameter(self):
-        return (self.key_type_parameter.field_name,
+        return (self.key_type_parameter.thrift_field_name,
                 self.key_type_parameter.to_tuple()[1:],
-                self.value_type_parameter.field_name,
+                self.value_type_parameter.thrift_field_name,
                 self.value_type_parameter.to_tuple()[1:])
 
 
@@ -243,6 +251,9 @@ class ThriftModel(TBase):
 
     def serialize(self, protocol_factory=TBinaryProtocol.TBinaryProtocolFactory()):
         return serialize(self, protocol_factory)
+
+    def _set_value_by_thrift_field_id(self, field_id, value):
+        self._model_data[field_id] = value
 
     @classmethod
     def deserialize(cls, stream, protocol_factory=TBinaryProtocol.TBinaryProtocolFactory()):
