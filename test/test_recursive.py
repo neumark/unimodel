@@ -1,22 +1,7 @@
 from unittest import TestCase
 from thrift.Thrift import TType
-from thriftmodel.model import (
-        ThriftField, ThriftModel, RecursiveThriftModel, IntField, ListField,
-        MapField, StringField, StructField, serialize, deserialize)
-
-
-class NodeData(ThriftModel):
-    name = StringField()
-    age = IntField()
-    skills = MapField(StringField(), IntField())
-
-class TreeNode(RecursiveThriftModel):
-    pass
-
-TreeNode.make_thrift_spec({
-        'children': ListField(TreeNode),
-        'data': StructField(NodeData)})
-
+from thriftmodel.model import (serialize, deserialize)
+from test.fixtures import NodeData, TreeNode, data
 
 class RecursiveTypeTestCase(TestCase):
 
@@ -57,30 +42,6 @@ class RecursiveTypeTestCase(TestCase):
         self.assertEquals(thrift_spec[3][1][1][3][1][1], thrift_spec[3][1])
 
     def test_serialize(self):
-        data = TreeNode(
-                children=[
-                    TreeNode(
-                            children=[TreeNode(data=NodeData(name="ulrik", age=9))],
-                            data=NodeData(
-                                name="josef",
-                                age=33,
-                                skills={
-                                    "guitar": 5,
-                                    "swimming": 10}),
-                        ),
-                    TreeNode(
-                        data=NodeData(name="julia", age=27)),
-                    TreeNode(
-                            children=[
-                                TreeNode(
-                                    data=NodeData(name="hans", age=91),
-                                    children=[NodeData(name="A")])
-                            ],
-                            data=NodeData(name="julio", age=67)
-                        )
-                    ]
-               )
-
         s = serialize(data)
         d = TreeNode.deserialize(s)
         self.assertEquals(d.__class__, TreeNode)

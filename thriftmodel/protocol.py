@@ -1,13 +1,21 @@
 from thrift.protocol import TBinaryProtocol, TCompactProtocol, TJSONProtocol
+from thriftmodel import TFlexibleJSONProtocol
 
 class Protocol(object):
 
     factories = [
         ('binary', TBinaryProtocol.TBinaryProtocolFactory()),
-        ('json', TJSONProtocol.TJSONProtocolFactory()),
-        ('simple_json', TJSONProtocol.TSimpleJSONProtocolFactory()),
+        ('verbose_json', TJSONProtocol.TJSONProtocolFactory()),
+        ('json', TFlexibleJSONProtocol.TFlexibleJSONProtocolFactory()),
         ('compact', TCompactProtocol.TCompactProtocolFactory())
     ]
+
+    @classmethod
+    def iter(cls):
+        current = 0
+        while current < len(cls.factories):
+            yield cls.factories[current]
+            current += 1
 
     @classmethod
     def lookup_by_id(cls, protocol_id):
@@ -27,4 +35,4 @@ class Protocol(object):
             protocol = self.lookup_by_name(protocol_name_or_id)
         self.id, self.name, self.factory =  protocol
 
-default_protocol_factory=TBinaryProtocol.TBinaryProtocolFactory()
+default_protocol_factory=Protocol('binary').factory
