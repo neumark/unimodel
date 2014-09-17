@@ -9,6 +9,10 @@ from StringIO import StringIO
 __all__ = ['TFlexibleJSONProtocol',
            'TFlexibleJSONProtocolFactory']
 
+DEFAULT_OPTIONS = {
+    'base64_encode_string': True,
+    'allow_unknown_fields': True}
+
 VERSION = 1
 
 NUMBER_TYPES = [
@@ -68,18 +72,27 @@ class ReadContext(object):
     def current_object(self):
         return self.context_stack[-1][2]
 
+def replace_tuple_element(orig_tuple, ix, new_element):
+    t = orig_tuple[:ix] + (new_element,) + orig_tuple[(ix + 1):]
+    return t
 
 class TFlexibleJSONProtocol(TSimpleJSONProtocol):
     def __init__(self, trans):
         TSimpleJSONProtocol.__init__(self, trans)
-        self.allow_unknown_fields = True
-        self.trans = trans
+        self.options = dict(DEFAULT_OPTIONS)
         self.read_context = None
         self.CONTAINER_CONSTRUCTORS = {
             TType.STRUCT: self.readFieldStruct,
             TType.MAP: self.readFieldMap,
             TType.SET: self.readFieldSet,
             TType.LIST: self.readFieldList}
+        self._TTYPE_HANDLERS = replace_tuple_element(self._TTYPE_HANDLERS,
+            TType.UTF8,
+            (None, 'writeUTF8String', False))
+
+
+    def set_options(self, options_dict):
+        self.options.update(options_dict)
 
     def readFieldStruct(self, key, spec, raw_value):
         cls, type_parameters = spec
@@ -158,7 +171,7 @@ class TFlexibleJSONProtocol(TSimpleJSONProtocol):
                 target_obj._set_value_by_thrift_field_id(field_id, parsed_value)
             else:
                 setattr(target_obj, thrift_field_name, parsed_value)
-        if self.allow_unknown_fields:
+        if not self.options['allow_unknown_fields']:
             self.validation_assert(len(unknown_fields) ==  0,
                 "unknown fields: %s" % ", ".join(unknown_fields))
         if hasattr(target_obj, 'validate'):
@@ -178,9 +191,32 @@ class TFlexibleJSONProtocol(TSimpleJSONProtocol):
     def readField(self, thrift_field_name, field_type, type_parameters, raw_value):
         if field_type in self.CONTAINER_CONSTRUCTORS:
             return self.readContainer(field_type, thrift_field_name, type_parameters, raw_value)
-        if field_type in (NUMBER_TYPES + STRING_TYPES):
-            # TODO type checking eg: float vs int, value ranges
+        if field_type in NUMBER_TYPES:
+            return self.readNumber(field_type, thrift_field_name, raw_value)
+        if field_type in STRING_TYPES:
+            return self.readString(field_type, thrift_field_name, raw_value)
+        if field_type == TType.BOOL:
             return raw_value
+
+    def readNumber(self, field_type, thrift_field_name, raw_value):
+        # TODO: verify range
+        return raw_value
+
+    def readString(self, field_type, thrift_field_name, raw_value):
+        if field_type == TType.STRING and self.options['base64_encode_string']:
+            return base64.b64decode(raw_value)
+        # TODO: verify range
+        return raw_value
+
+    def writeString(self, val):
+        # NOTE: by this point, we know that the thrift type is STRING
+        if self.options['base64_encode_string']:
+            val = base64.b64encode(val)
+        TSimpleJSONProtocol.writeString(self, val)
+
+    def writeUTF8String(self, val):
+        self.context.write()
+        self.trans.write(json.dumps(val))
     
  
 class TFlexibleJSONProtocolFactory(object):

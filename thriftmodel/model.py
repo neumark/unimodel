@@ -122,32 +122,23 @@ class MapField(ParametricThriftField):
                 value_spec[1],
                 value_spec[3])
 
-
-def serialize_simplejson(obj):
-    return serialize(obj, protocol_factory=TJSONProtocol.TSimpleJSONProtocolFactory())
-
-def serialize_debug_simplejson(obj):
-    return serialize(obj, protocol_factory=ProtocolDebugger(TJSONProtocol.TSimpleJSONProtocolFactory()))
-
-def serialize_json(obj):
-    return serialize(obj, protocol_factory=TJSONProtocol.TJSONProtocolFactory())
-
-def serialize_compact(obj):
-    return serialize(obj, protocol_factory=TCompactProtocol.TCompactProtocolFactory())
-
-def serialize(obj, protocol_factory=default_protocol_factory):
+def serialize(obj, protocol_factory=default_protocol_factory, protocol_options=None):
     transport = TTransport.TMemoryBuffer()
     protocol = protocol_factory.getProtocol(transport)
+    if protocol_options is not None and hasattr(protocol, 'set_options'):
+        protocol.set_options(protocol_options)
     write_to_stream(obj, protocol)
     transport._buffer.seek(0)
     return transport._buffer.getvalue()
 
-def deserialize(cls, stream, protocol_factory=default_protocol_factory):
+def deserialize(cls, stream, protocol_factory=default_protocol_factory, protocol_options=None):
     obj = cls()
     transport = TTransport.TMemoryBuffer()
     transport._buffer.write(stream)
     transport._buffer.seek(0)
     protocol = protocol_factory.getProtocol(transport)
+    if protocol_options is not None and hasattr(protocol, 'set_options'):
+        protocol.set_options(protocol_options)
     read_from_stream(obj, protocol)
     return obj
 
@@ -227,15 +218,15 @@ class ThriftModel(TBase):
     def __ne__(self, other):
         return not (self == other)
 
-    def serialize(self, protocol_factory=default_protocol_factory):
-        return serialize(self, protocol_factory)
+    def serialize(self, protocol_factory=default_protocol_factory, protocol_options=None):
+        return serialize(self, protocol_factory, protocol_options)
 
     def _set_value_by_thrift_field_id(self, field_id, value):
         self._model_data[field_id] = value
 
     @classmethod
-    def deserialize(cls, stream, protocol_factory=default_protocol_factory):
-        return deserialize(cls, stream, protocol_factory)
+    def deserialize(cls, stream, protocol_factory=default_protocol_factory, protocol_options=None):
+        return deserialize(cls, stream, protocol_factory, protocol_options)
 
     @classmethod
     def make_thrift_spec(cls, field_dict):
