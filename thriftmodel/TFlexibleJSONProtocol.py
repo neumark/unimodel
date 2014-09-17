@@ -3,6 +3,7 @@ from thrift.protocol.TJSONProtocol import TSimpleJSONProtocol
 import base64
 import json
 import math
+import traceback
 from StringIO import StringIO
 
 __all__ = ['TFlexibleJSONProtocol',
@@ -26,9 +27,14 @@ STRING_TYPES = [
 
 class ReadValidationException(Exception):
 
-   def __init__(self, message, read_context=None):
+    def __init__(self, message, read_context=None, tb=None):
         Exception.__init__(self, message)
         self.read_context = read_context
+        self.tb = tb
+
+    #def __str__(self):
+    #    return "%s(%s, read_context=%s, tb=%s)" % (
+    #            "ReadValidationException", Exception.__str__(self), str(self.read_context), str(self.tb))
 
 class ReadContext(object):
 
@@ -153,11 +159,12 @@ class TFlexibleJSONProtocol(TSimpleJSONProtocol):
         if self.allow_unknown_fields:
             self.validation_assert(len(unknown_fields) ==  0,
                 "unknown fields: %s" % ", ".join(unknown_fields))
-        if hasattr(obj, 'validate'):
+        if hasattr(target_obj, 'validate'):
             try:
-                obj.validate()
+                target_obj.validate()
             except Exception, e:
-                raise ReadValidationException(str(e), self.read_context)
+                tb = traceback.format_exc()
+                raise ReadValidationException(str(e), self.read_context, tb=tb)
 
     def readContainer(self, field_type, key, spec, raw_value):
         self.read_context.push_context(spec, key, raw_value)

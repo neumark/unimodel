@@ -65,6 +65,7 @@ class ThriftField(object):
         self.thrift_field_name = thrift_field_name
         self.default = default
         self.field_id = field_id
+        self.required=required
 
     def to_tuple(self):
         return (self.field_id, self.field_type_id, self.thrift_field_name, None, self.default,)
@@ -282,7 +283,7 @@ class ThriftModel(TBase):
         # check to make sure required fields are set
         for k, v in self._fields_by_name.iteritems():
             if v.required and self._model_data.get(v.field_id, None) is None:
-                raise ValidationException("Required field %s (id %) not set" % (k, v.field_id))
+                raise ValidationException("Required field %s (id %s) not set" % (k, v.field_id))
 
 class RecursiveThriftModel(ThriftModel):
     thrift_spec = [None]
