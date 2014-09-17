@@ -32,9 +32,11 @@ class ReadValidationException(Exception):
         self.read_context = read_context
         self.tb = tb
 
-    #def __str__(self):
-    #    return "%s(%s, read_context=%s, tb=%s)" % (
-    #            "ReadValidationException", Exception.__str__(self), str(self.read_context), str(self.tb))
+    def __str__(self):
+        msg = Exception.__str__(self)
+        json_path = "?" if self.read_context is None else self.read_context.current_path()
+        return "ReadValidationException: %s, json_path: %s" % (
+            msg, json_path)
 
 class ReadContext(object):
 

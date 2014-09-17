@@ -10,8 +10,8 @@ class ProtocolTestCase(TestCase):
     def test_serialize(self):
         for protocol_name, protocol_factory in Protocol.iter():
             pre_flattened = flatten(data)
-            s = serialize(data)
-            d = TreeNode.deserialize(s)
+            s = serialize(data, protocol_factory)
+            d = TreeNode.deserialize(s, protocol_factory)
             self.assertEquals(d.__class__, TreeNode)
             post_flattened = flatten(d)
             self.assertEquals(pre_flattened, post_flattened, "%s serializes as expected" % protocol_name)
