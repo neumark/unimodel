@@ -1,5 +1,6 @@
 import sys
 import types
+import itertools
 from functools import wraps
 from thrift.Thrift import TType, TMessageType, TException, TApplicationException
 from thrift.protocol.TBase import TBase, TExceptionBase
@@ -173,13 +174,37 @@ class ThriftModel(TBase):
             setattr(self, field_name, value)
 
         for i in xrange(0, len(args)):
-            field_name = self.thrift_spec[i+1][2]
-            setattr(self, field_name, args[i])
+            field_id = self.thrift_spec[i+1][0]
+            self._model_data[field_id] = args[i]
 
     def __repr__(self):
         L = ['%s=%r' % (self._fields_by_id[field_id][0], value)
             for field_id, value in self._model_data.iteritems()]
         return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+    def iterkeys(self):
+        return itertools.imap(
+                lambda pair: self._fields_by_id[pair[0]][1].thrift_field_name,
+                itertools.ifilter(lambda pair: pair[1] is not None, self._model_data.iteritems()))
+
+    def _thrift_field_name_to_field_id(self, thrift_field_name):
+        field = [f[1] for f in self._fields_by_id.values() if f[1].thrift_field_name == thrift_field_name]
+        if len(field) < 1:
+            raise KeyError(thrift_field_name)
+        return field[0].field_id
+
+    def __getitem__(self, thrift_field_name):
+        return self._model_data[self._thrift_field_name_to_field_id(thrift_field_name)]
+
+    def __setitem__(self, thrift_field_name, value):
+        self._model_data[self._thrift_field_name_to_field_id(thrift_field_name)] = value
+
+    def __delitem__(self, thrift_field_name):
+        self._model_data.__delitem__(
+                self._thrift_field_name_to_field_id(thrift_field_name))
+
+    def __iter__(self):
+        return self.iterkeys()
 
     def __getattribute__(self, name):
         # check in model_data first

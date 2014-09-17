@@ -4,7 +4,6 @@ from thriftmodel.protocol import Protocol
 from thriftmodel.model import serialize, deserialize
 from test.fixtures import NodeData, TreeNode, data
 from test.helpers import flatten
-import pprint
 
 class ProtocolTestCase(TestCase):
 
