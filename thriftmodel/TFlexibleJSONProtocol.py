@@ -15,6 +15,8 @@ DEFAULT_OPTIONS = {
 
 VERSION = 1
 
+UNBOXED_UNION_ATTR = "is_unboxed_union"
+
 NUMBER_TYPES = [
     TType.BYTE,
     TType.I08,
@@ -28,6 +30,40 @@ STRING_TYPES = [
     TType.UTF7,
     TType.UTF8,
     TType.UTF16]
+
+def set_field_value(thrift_obj, field_id, value):
+    if hasattr(thrift_obj, "_set_value_by_thrift_field_id"):
+        thrift_obj._set_value_by_thrift_field_id(field_id, value)
+    else:
+        field_spec = [f for f in thrift_obj.thrift_spec[1:] if f[0] == field_id]
+        setattr(thrift_obj, field_spec[0][2], value)
+
+def iterate_fields(thrift_obj):
+    """ generatord for (field_id, value) pairs. """
+    for current_field_spec in thrift_obj.thrift_spec[1:]:
+        field_id = current_field_spec[0]
+        if hasattr(thrift_obj, '_get_value_by_thrift_field_id'):
+            # NOTE: the thrift_field_name may be different than the field name used by
+            # the python class, this is why it's better to get it by field id.
+            field_value = thrift_obj._get_value_by_thrift_field_id(field_id)
+        else:
+            field_value = getattr(thrift_obj, current_field_spec[2])
+        yield (field_id, current_field_spec, field_value)
+
+def get_unboxed_union_field(thrift_obj):
+    if hasattr(thrift_obj, "is_unboxed_union"):
+        set_fields = []
+        for _fid, spec, v in iterate_fields(thrift_obj):
+            if v is not None:
+                set_fields.append((spec, v))
+        if len(set_fields) == 0:
+            return (None, None)
+        if len(set_fields) > 1:
+            raise SerializationException("UnboxedUnion can have at most one field set!")
+        return set_fields[0]
+
+class SerializationException(Exception):
+    pass
 
 class ReadValidationException(Exception):
 
@@ -73,8 +109,7 @@ class ReadContext(object):
         return self.context_stack[-1][2]
 
 def replace_tuple_element(orig_tuple, ix, new_element):
-    t = orig_tuple[:ix] + (new_element,) + orig_tuple[(ix + 1):]
-    return t
+    return orig_tuple[:ix] + (new_element,) + orig_tuple[(ix + 1):]
 
 class TFlexibleJSONProtocol(TSimpleJSONProtocol):
     def __init__(self, trans):
@@ -165,12 +200,7 @@ class TFlexibleJSONProtocol(TSimpleJSONProtocol):
             known_fields.append(key)
             field_id, field_type, thrift_field_name, type_parameters, default_value = field_spec[0]
             parsed_value = self.readField(thrift_field_name, field_type, type_parameters, raw_value)
-            if hasattr(target_obj, '_set_value_by_thrift_field_id'):
-                # NOTE: the thrift_field_name may be different than the field name used by
-                # the python class, this is why it's better to set it by field id.
-                target_obj._set_value_by_thrift_field_id(field_id, parsed_value)
-            else:
-                setattr(target_obj, thrift_field_name, parsed_value)
+            set_field_value(target_obj, field_id, parsed_value)
         if not self.options['allow_unknown_fields']:
             self.validation_assert(len(unknown_fields) ==  0,
                 "unknown fields: %s" % ", ".join(unknown_fields))
@@ -217,6 +247,28 @@ class TFlexibleJSONProtocol(TSimpleJSONProtocol):
     def writeUTF8String(self, val):
         self.context.write()
         self.trans.write(json.dumps(val))
+
+    def writeStruct(self, obj, thrift_spec):
+        # If obj is an UnboxedUnion type, write the active field if it is set.
+        if hasattr(obj, UNBOXED_UNION_ATTR):
+            field_spec, field_value = get_unboxed_union_field(obj)
+            # note, it's possible that the unboxed union is empty
+            # if they call deserialize on it directly, they they should get '{}'
+            if field_spec is not None:
+                return TSimpleJSONProtocol.writeFieldByTType(
+                        self,
+                        field_spec[1],
+                        field_value,
+                        field_spec[3])
+        # UnboxedUnion fields must be set to None
+        # if none of the fields are set.
+        for field_id, _spec, value in iterate_fields(obj):
+            if hasattr(value, UNBOXED_UNION_ATTR):
+                field_id, field_value = get_unboxed_union_field(value)
+                if field_value is None:
+                    set_field_value(obj, field_id, None)
+        else:
+            TSimpleJSONProtocol.writeStruct(self, obj, thrift_spec)
     
  
 class TFlexibleJSONProtocolFactory(object):
