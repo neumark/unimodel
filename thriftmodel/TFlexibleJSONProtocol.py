@@ -67,10 +67,11 @@ class SerializationException(Exception):
 
 class ReadValidationException(Exception):
 
-    def __init__(self, message, read_context=None, tb=None):
+    def __init__(self, message, read_context=None, tb=None, data=None):
         Exception.__init__(self, message)
         self.read_context = read_context
         self.tb = tb
+        self.data = data
 
     def __str__(self):
         msg = Exception.__str__(self)
@@ -178,18 +179,46 @@ class TFlexibleJSONProtocol(TSimpleJSONProtocol):
 
     def validation_assert(self, condition, message=""):
         if not condition:
-            raise ReadValidationException(message, self.read_context)
+            raise ReadValidationException(message, self.read_context, data=self.read_context.current_object())
 
     def readMessageEnd(self):
         self.readJSONArrayEnd()
 
+    def readUnboxedUnion(self, target_obj, json_obj):
+        # Try to read fields in the declared order for ThriftModels
+        # (otherwise, use thrift_spec field order)
+        if hasattr(target_obj, "_fields_by_name"):
+            field_id_list = [f.field_id for f in 
+                    sorted(target_obj._fields_by_name.values(), key=lambda x: x.creation_count)]
+        else:
+            field_id_list = [f[0] for f in target_obj.thrift_spec[1:]]
+        spec_dict = dict([(f[0], f) for f in target_obj.thrift_spec[1:]])
+        failed_field_reads = {}
+        for field_id in field_id_list:
+            spec = spec_dict[field_id]
+            try:
+                read_value = self.readField(spec[2], spec[1], spec[3], json_obj)
+                # TODO: maybe check if the read_field is empty (this could be an
+                # indication that the read failed even if no exception was raised.
+                set_field_value(target_obj, field_id, read_value)
+                return target_obj
+            except ReadValidationException, e:
+                failed_field_reads[spec[2]] = str(e)
+        # If we reach this point, no field matched:
+        raise ReadValidationException(
+                "UnboxedUnion read error: no field matched value",
+                read_context=self.read_context,
+                data=failed_field_reads)
+
+
     def readStruct(self, target_obj, thrift_spec):
-        # if target_obj isa ThriftModel, we have access to
-        # validators and the required field.
         if self.read_context is None:
            self.parse_json(thrift_spec)
         json_obj = self.read_context.current_object()
+        if hasattr(target_obj, UNBOXED_UNION_ATTR):
+            return self.readUnboxedUnion(target_obj, json_obj)
         # (un)known_fields contain thrift field names
+        self.validation_assert(type(json_obj) == dict, "Expecting JSON dictionary, got %s" % type(json_obj))
         known_fields = []
         unknown_fields = []
         for key, raw_value in json_obj.iteritems():
@@ -213,10 +242,11 @@ class TFlexibleJSONProtocol(TSimpleJSONProtocol):
 
     def readContainer(self, field_type, key, spec, raw_value):
         self.read_context.push_context(spec, key, raw_value)
-        reader = self.CONTAINER_CONSTRUCTORS[field_type]
-        result = reader(key, spec, raw_value)
-        self.read_context.pop_context()
-        return result
+        try:
+            reader = self.CONTAINER_CONSTRUCTORS[field_type]
+            return reader(key, spec, raw_value)
+        finally:
+            self.read_context.pop_context()
 
     def readField(self, thrift_field_name, field_type, type_parameters, raw_value):
         if field_type in self.CONTAINER_CONSTRUCTORS:
@@ -229,13 +259,22 @@ class TFlexibleJSONProtocol(TSimpleJSONProtocol):
             return raw_value
 
     def readNumber(self, field_type, thrift_field_name, raw_value):
-        # TODO: verify range
+        if field_type == TType.DOUBLE:
+            self.validation_assert(type(raw_value) == float, "Expecting floating point number, got %s" % str(raw_value))
+        else:
+            self.validation_assert(type(raw_value) == int, "Expecting integer number, got %s" % str(raw_value))
+            # TODO: verify range
         return raw_value
 
     def readString(self, field_type, thrift_field_name, raw_value):
         if field_type == TType.STRING and self.options['base64_encode_string']:
             return base64.b64decode(raw_value)
-        # TODO: verify range
+        if field_type == TType.STRING:
+            self.validation_assert(type(raw_value) in [str, unicode],
+                    "Expecting unicode string, got %s" % type(raw_value))
+        if field_type == TType.UTF8:
+            self.validation_assert(type(raw_value) == unicode,
+                    "Expecting unicode string, got %s" % type(raw_value))
         return raw_value
 
     def writeString(self, val):
