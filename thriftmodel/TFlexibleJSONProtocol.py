@@ -5,6 +5,7 @@ import json
 import math
 import traceback
 from StringIO import StringIO
+from thriftmodel.util import replace_tuple_element
 
 __all__ = ['TFlexibleJSONProtocol',
            'TFlexibleJSONProtocolFactory']
@@ -109,8 +110,6 @@ class ReadContext(object):
     def current_object(self):
         return self.context_stack[-1][2]
 
-def replace_tuple_element(orig_tuple, ix, new_element):
-    return orig_tuple[:ix] + (new_element,) + orig_tuple[(ix + 1):]
 
 class TFlexibleJSONProtocol(TSimpleJSONProtocol):
     def __init__(self, trans):

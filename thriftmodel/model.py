@@ -163,9 +163,20 @@ class ThriftModel(TBase):
     def __getattribute__(self, name):
         # check in model_data first
         fields_by_name = object.__getattribute__(self, '_fields_by_name')
-        if name in fields_by_name:
+        # Note: In a try ... raise block because reading of _model_data
+        # raises an AttributeError in ThriftModel.__init__, the value is first
+        # being set.
+        try:
             model_data = object.__getattribute__(self, '_model_data')
-            return model_data.get(fields_by_name[name].field_id, None)
+            # If a model field name matches, return its value
+            if name in fields_by_name:
+                return model_data.get(fields_by_name[name].field_id, None)
+            # if a thrift field name matches, return its value
+            field_candidates = [v for v in fields_by_name.values() if v.thrift_field_name == name]
+            if len(field_candidates) > 0:
+                return model_data.get(field_candidates[0].field_id, None)
+        except AttributeError:
+            pass
         return object.__getattribute__(self, name)
 
     def __setattr__(self, name, value):
