@@ -58,3 +58,38 @@ class ValidationTestCase(TestCase):
         obj.f = 2
         # this doesn't raise
         obj.validate()
+
+    def test_type_parameter_validator(self):
+        class ElementValidator(object):
+            def validate(self, value):
+                if value % 2 > 0:
+                    raise ValidationException("f is not odd (f == %s)" % value)
+
+        class ListValidator(object):
+            def validate(self, l):
+                if len(l) != 4:
+                    raise ValidationException("list should have 4 elements")
+
+        class G(ThriftModel):
+            f = ListField(IntField(
+                    validators=[ElementValidator()]))
+ 
+        class F(ThriftModel):
+            f = ListField(
+                    IntField(),
+                    validators=[ListValidator()])
+ 
+        obj = G(f=[0,1])
+        self.assertRaises(ValidationException, lambda: obj.validate())
+        obj.f = [2,2]
+        # this doesn't raise
+        obj.validate()
+        # this raises
+        self.assertRaises(ValidationException, lambda: F(f=[1]).validate())
+        F(f=[1,2,3,4]).validate()
+
+    def test_validate_map(self):
+        # TODO
+        pass
+
+

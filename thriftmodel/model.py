@@ -31,6 +31,11 @@ class ThriftField(object):
         self.required = required
         self.validators = validators
 
+    def validate(self, value):
+        for validator in (self.validators or []):
+            # TODO: we may want to save the output of validators for warnings and messages
+            validator.validate(value)
+
     def to_tuple(self):
         return (self.field_id, self.field_type_id, self.thrift_field_name, None, self.default,)
 
@@ -41,6 +46,18 @@ class ParametricThriftField(ThriftField):
 
     def get_type_parameter(self):
         return self.type_parameter.to_tuple()[3] or None
+
+    def validate(self, container):
+        # Run an validators on the container type itself.
+        # Eg: if we want to chech that a list has 4 elements,
+        # the validator would be on the list itself.
+        super(ParametricThriftField, self).validate(container)
+        # Validate the elements of the container if there are validators defined.
+        if self.type_parameter is not None and hasattr(self.type_parameter, 'validators'):
+            for validator in (self.type_parameter.validators or []):
+                for elem in container:
+                        # TODO: we may want to save the output of validators for warnings and messages
+                        validator.validate(elem)
 
     def to_tuple(self):
         return (self.field_id, self.field_type_id, self.thrift_field_name, self.get_type_parameter(), self.default,)
@@ -257,9 +274,7 @@ class ThriftModel(TBase):
             if v.required and self._model_data.get(v.field_id, None) is None:
                 raise ValidationException("Required field %s (id %s) not set" % (k, v.field_id))
             # Run any field validators
-            for validator in (v.validators or []):
-                # TODO: we may want to save the output of validators for warnings and messages
-                validator.validate(self._model_data.get(v.field_id, None))
+            v.validate(self._model_data.get(v.field_id, None))
         # Run the validator for the model itself (if it is set)
         if hasattr(self, 'validators'):
             for validator in (self.validators or []):
