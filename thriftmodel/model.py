@@ -20,14 +20,16 @@ class ThriftField(object):
             thrift_field_name=None,
             field_id=-1,
             default=None,
-            required=False):
+            required=False,
+            validators=None):
         self.creation_count = ThriftField._field_creation_counter
         ThriftField._field_creation_counter += 1
         self.field_type_id = field_type_id
         self.thrift_field_name = thrift_field_name
         self.default = default
         self.field_id = field_id
-        self.required=required
+        self.required = required
+        self.validators = validators
 
     def to_tuple(self):
         return (self.field_id, self.field_type_id, self.thrift_field_name, None, self.default,)
@@ -58,6 +60,8 @@ class UTF8Field(ThriftField):
 class StringField(ThriftField):
     def __init__(self, **kwargs):
         super(StringField, self).__init__(TType.STRING, **kwargs)
+
+BinaryField = StringField
 
 class StructField(ParametricThriftField):
     def __init__(self, type_parameter, **kwargs):
@@ -252,6 +256,14 @@ class ThriftModel(TBase):
         for k, v in self._fields_by_name.iteritems():
             if v.required and self._model_data.get(v.field_id, None) is None:
                 raise ValidationException("Required field %s (id %s) not set" % (k, v.field_id))
+            # Run any field validators
+            for validator in (v.validators or []):
+                # TODO: we may want to save the output of validators for warnings and messages
+                validator.validate(self._model_data.get(v.field_id, None))
+        # Run the validator for the model itself (if it is set)
+        if hasattr(self, 'validators'):
+            for validator in (self.validators or []):
+                validator.validate(self)
 
 class RecursiveThriftModel(ThriftModel):
     thrift_spec = [None]
