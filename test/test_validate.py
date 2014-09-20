@@ -89,7 +89,45 @@ class ValidationTestCase(TestCase):
         F(f=[1,2,3,4]).validate()
 
     def test_validate_map(self):
-        # TODO
-        pass
+        class KeyValidator(object):
+            def validate(self, value):
+                if value % 2 > 0:
+                    raise ValidationException("f is not even (f == %s)" % value)
 
+        class ValueValidator(object):
+            def validate(self, l):
+                if len(l) != 4:
+                    raise ValidationException("list should have 4 elements")
 
+        class F(ThriftModel):
+            f = MapField(
+                    IntField(validators=[KeyValidator()]),
+                    ListField(UTF8Field(), validators=[ValueValidator()]))
+
+        # both key and value is OK
+        F(f={2:["a", "b", "c", "d"]}).validate()
+        # validation of key fails
+        self.assertRaises(ValidationException, lambda: F(f={1: ["a", "b", "c", "d"]}).validate())
+        # validation of value fails
+        self.assertRaises(ValidationException, lambda: F(f={4: ["a", "b", "c"]}).validate())
+
+    def test_validate_deeply_nested(self):
+        class EvenValidator(object):
+            def validate(self, value):
+                if value % 2 > 0:
+                    raise ValidationException("f is not even (f == %s)" % value)
+
+        class F(ThriftModel):
+            f = ListField(
+                    ListField(
+                        ListField(
+                            MapField(
+                                UTF8Field(),
+                                ListField(
+                                    ListField(
+                                        IntField(validators=[EvenValidator()])))))))
+
+        # both key and value is OK
+        F(f=[[[{"a":[[2]]}]]]).validate()
+        # validation of int fails
+        self.assertRaises(ValidationException, lambda: F(f=[[[{"a":[[3]]}]]]).validate())

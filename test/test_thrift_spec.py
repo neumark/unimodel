@@ -1,7 +1,8 @@
 from unittest import TestCase
 from thrift.Thrift import TType
 from thriftmodel.model import (
-        ThriftField, IntField, ListField, MapField, StringField)
+        ThriftModel, ThriftField, IntField, ListField, MapField, 
+        StringField, StructField)
 
 class ThriftSpecTestCase(TestCase):
     """
@@ -52,3 +53,11 @@ class ThriftSpecTestCase(TestCase):
         field = MapField(IntField(), StringField())
         self.assertEquals(field.to_tuple(), 
             (-1, TType.MAP, None, (TType.I64, None, TType.STRING, None), None))
+
+    def test_struct_field(self):
+        """ a thriftmodel's spec is part of a StructFields
+            spec (if the struct field has the model's type) """
+        class F(ThriftModel):
+            f = IntField()
+        self.assertEquals(F.thrift_spec, StructField(F).to_tuple()[3][1])
+

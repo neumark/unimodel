@@ -39,25 +39,31 @@ class ThriftField(object):
     def to_tuple(self):
         return (self.field_id, self.field_type_id, self.thrift_field_name, None, self.default,)
 
-class ParametricThriftField(ThriftField):
+class CollectionThriftField(ThriftField):
     def __init__(self, field_type_id, type_parameter, **kwargs):
-        super(ParametricThriftField, self).__init__(field_type_id, **kwargs)
+        super(CollectionThriftField, self).__init__(field_type_id, **kwargs)
         self.type_parameter = type_parameter
 
     def get_type_parameter(self):
-        return self.type_parameter.to_tuple()[3] or None
+        tp = self.type_parameter.to_tuple()
+        return (tp[1], tp[3])
+
+    def _validate_elements(self, collection, field_or_model):
+        if field_or_model is not None:
+            if isinstance(field_or_model, ThriftField):
+                for elem in collection:
+                    field_or_model.validate(elem)
+            if isinstance(field_or_model, ThriftModel):
+                for elem in collection:
+                    elem.validate()
 
     def validate(self, container):
         # Run an validators on the container type itself.
         # Eg: if we want to chech that a list has 4 elements,
         # the validator would be on the list itself.
-        super(ParametricThriftField, self).validate(container)
+        super(CollectionThriftField, self).validate(container)
         # Validate the elements of the container if there are validators defined.
-        if self.type_parameter is not None and hasattr(self.type_parameter, 'validators'):
-            for validator in (self.type_parameter.validators or []):
-                for elem in container:
-                        # TODO: we may want to save the output of validators for warnings and messages
-                        validator.validate(elem)
+        self._validate_elements(container, self.type_parameter)
 
     def to_tuple(self):
         return (self.field_id, self.field_type_id, self.thrift_field_name, self.get_type_parameter(), self.default,)
@@ -80,18 +86,22 @@ class StringField(ThriftField):
 
 BinaryField = StringField
 
-class StructField(ParametricThriftField):
+class StructField(CollectionThriftField):
     def __init__(self, type_parameter, **kwargs):
         super(StructField, self).__init__(TType.STRUCT, type_parameter, **kwargs)
 
-class ListField(ParametricThriftField):
+    def get_type_parameter(self):
+        return self.type_parameter.to_tuple()[3] or None
+
+class ListField(CollectionThriftField):
     def __init__(self, type_parameter, **kwargs):
         super(ListField, self).__init__(TType.LIST, type_parameter, **kwargs)
-    def get_type_parameter(self):
-        tp = self.type_parameter.to_tuple()
-        return (tp[1], tp[3])
 
-class MapField(ParametricThriftField):
+class SetField(CollectionThriftField):
+    def __init__(self, type_parameter, **kwargs):
+        super(SetField, self).__init__(TType.SET, type_parameter, **kwargs)
+
+class MapField(CollectionThriftField):
     def __init__(self, key_type_parameter, value_type_parameter, **kwargs):
         super(MapField, self).__init__(TType.MAP, None, **kwargs)
         self.key_type_parameter = key_type_parameter
@@ -104,6 +114,16 @@ class MapField(ParametricThriftField):
                 key_spec[3],
                 value_spec[1],
                 value_spec[3])
+
+    def validate(self, dictionary):
+        # Run an validators on the container type itself.
+        # Eg: if we want to chech that a list has 4 elements,
+        # the validator would be on the list itself.
+        super(MapField, self).validate(dictionary)
+        # Validate the elements of the container if there are validators defined.
+        if dictionary:
+            self._validate_elements(dictionary.keys(), self.key_type_parameter)
+            self._validate_elements(dictionary.values(), self.value_type_parameter)
 
 def serialize(obj, protocol_factory=default_protocol_factory, protocol_options=None):
     transport = TTransport.TMemoryBuffer()
