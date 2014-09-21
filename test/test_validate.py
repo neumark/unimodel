@@ -131,3 +131,10 @@ class ValidationTestCase(TestCase):
         F(f=[[[{"a":[[2]]}]]]).validate()
         # validation of int fails
         self.assertRaises(ValidationException, lambda: F(f=[[[{"a":[[3]]}]]]).validate())
+
+    def test_validate_tree_path(self):
+        # TODO: update the "validation path", which is just like the
+        # json path so it's possible to tell where the failing value
+        # was located.
+        pass
+

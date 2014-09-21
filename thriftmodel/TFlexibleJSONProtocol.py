@@ -70,15 +70,16 @@ class ReadValidationException(Exception):
 
     def __init__(self, message, read_context=None, tb=None, data=None):
         Exception.__init__(self, message)
-        self.read_context = read_context
+        self.json_path = None
+        if read_context:
+            self.json_path = read_context.current_path()
         self.tb = tb
         self.data = data
 
     def __str__(self):
         msg = Exception.__str__(self)
-        json_path = "?" if self.read_context is None else self.read_context.current_path()
         return "ReadValidationException: %s, json_path: %s" % (
-            msg, json_path)
+            msg, self.json_path)
 
 class ReadContext(object):
 
@@ -105,7 +106,7 @@ class ReadContext(object):
         return self.context_stack[-1][0]
 
     def current_path(self):
-        return self.context_stack[-1][1]
+        return ".".join(self.context_stack[-1][1])
 
     def current_object(self):
         return self.context_stack[-1][2]
