@@ -1,6 +1,7 @@
 import sys
 import types
 import itertools
+import inspect
 from functools import wraps
 from thrift.Thrift import TType, TMessageType, TException, TApplicationException
 from thrift.protocol.TBase import TBase, TExceptionBase
@@ -16,19 +17,27 @@ class UndefinedFieldException(Exception):
 class ThriftField(object):
     _field_creation_counter = 0
 
-    def __init__(self, field_type_id,
+    def __init__(self,
             thrift_field_name=None,
             field_id=-1,
+            field_type_id=-1,
             default=None,
             required=False,
             validators=None):
         self.creation_count = ThriftField._field_creation_counter
         ThriftField._field_creation_counter += 1
-        self.field_type_id = field_type_id
+        self.field_id = field_id
         self.thrift_field_name = thrift_field_name
         self.default = default
-        self.field_id = field_id
-        self.required = required
+        # if the field_type_id argument is invalid, we can use the
+        # default value set on the class (when it exists).
+        if field_type_id < 0 and hasattr(self.__class__, 'field_type_id'):
+            self.field_type_id = self.__class__.field_type_id
+        else:
+            # TODO: we should probably throw an exception here
+            # if field_type_id is < 0
+            self.field_type_id = field_type_id
+        self.required=required
         self.validators = validators
 
     def validate(self, value):
@@ -36,12 +45,16 @@ class ThriftField(object):
             # TODO: we may want to save the output of validators for warnings and messages
             validator.validate(value)
 
+    def thrift_type_name(self):
+        return TType._VALUES_TO_NAMES[self.field_type_id].lower()
+
     def to_tuple(self):
         return (self.field_id, self.field_type_id, self.thrift_field_name, None, self.default,)
 
-class CollectionThriftField(ThriftField):
-    def __init__(self, field_type_id, type_parameter, **kwargs):
-        super(CollectionThriftField, self).__init__(field_type_id, **kwargs)
+
+class ParametricThriftField(ThriftField):
+    def __init__(self, type_parameter, **kwargs):
+        super(ParametricThriftField, self).__init__(**kwargs)
         self.type_parameter = type_parameter
 
     def get_type_parameter(self):
@@ -65,33 +78,43 @@ class CollectionThriftField(ThriftField):
         # Validate the elements of the container if there are validators defined.
         self._validate_elements(container, self.type_parameter)
 
+    def thrift_type_name(self):
+        return "%s<%s>" % (TType._VALUES_TO_NAMES[self.field_type_id].lower(), self.type_parameter.thrift_type_name())
+
     def to_tuple(self):
         return (self.field_id, self.field_type_id, self.thrift_field_name, self.get_type_parameter(), self.default,)
 
 class IntField(ThriftField):
-    def __init__(self, **kwargs):
-        super(IntField, self).__init__(TType.I64, **kwargs)
+    field_type_id = TType.I64
+
+class DoubleField(ThriftField):
+    field_type_id = TType.DOUBLE
 
 class BoolField(ThriftField):
-    def __init__(self, **kwargs):
-        super(BoolField, self).__init__(TType.BOOL, **kwargs)
+    field_type_id = TType.BOOL
 
 class UTF8Field(ThriftField):
-    def __init__(self, **kwargs):
-        super(UTF8Field, self).__init__(TType.UTF8, **kwargs)
+    field_type_id = TType.UTF8
 
 class StringField(ThriftField):
-    def __init__(self, **kwargs):
-        super(StringField, self).__init__(TType.STRING, **kwargs)
+    field_type_id = TType.STRING
 
-BinaryField = StringField
+class BinaryField(StringField):
+    is_binary = True
 
-class StructField(CollectionThriftField):
-    def __init__(self, type_parameter, **kwargs):
-        super(StructField, self).__init__(TType.STRUCT, type_parameter, **kwargs)
+class StructField(ParametricThriftField):
+    field_type_id = TType.STRUCT
+
+    def thrift_type_name(self):
+        return self.type_parameter.thrift_type_name()
 
     def get_type_parameter(self):
         return self.type_parameter.to_tuple()[3] or None
+
+class UnionField(StructField):
+    def __init__(self, type_parameter, **kwargs):
+        super(UnionField, self).__init__(type_parameter, is_boxed=False, **kwargs)
+        self.is_boxed = is_boxed
 
 class ListField(CollectionThriftField):
     def __init__(self, type_parameter, **kwargs):
@@ -101,9 +124,21 @@ class SetField(CollectionThriftField):
     def __init__(self, type_parameter, **kwargs):
         super(SetField, self).__init__(TType.SET, type_parameter, **kwargs)
 
-class MapField(CollectionThriftField):
+class ListField(ParametricThriftField):
+    field_type_id = TType.LIST
+
+    def get_type_parameter(self):
+        tp = self.type_parameter.to_tuple()
+        return (tp[1], tp[3])
+
+class SetField(ListField):
+    field_type_id = TType.SET
+
+class MapField(ParametricThriftField):
+    field_type_id = TType.MAP
+
     def __init__(self, key_type_parameter, value_type_parameter, **kwargs):
-        super(MapField, self).__init__(TType.MAP, None, **kwargs)
+        super(MapField, self).__init__(None, **kwargs)
         self.key_type_parameter = key_type_parameter
         self.value_type_parameter = value_type_parameter
 
@@ -124,6 +159,12 @@ class MapField(CollectionThriftField):
         if dictionary:
             self._validate_elements(dictionary.keys(), self.key_type_parameter)
             self._validate_elements(dictionary.values(), self.value_type_parameter)
+
+    def thrift_type_name(self):
+        return "%s<%s, %s>" % (
+            TType._VALUES_TO_NAMES[self.field_type_id].lower(),
+            self.key_type_parameter.thrift_type_name(),
+            self.value_type_parameter.thrift_type_name())
 
 def serialize(obj, protocol_factory=default_protocol_factory, protocol_options=None):
     transport = TTransport.TMemoryBuffer()
@@ -205,8 +246,8 @@ class ThriftModel(TBase):
         # check in model_data first
         fields_by_name = object.__getattribute__(self, '_fields_by_name')
         # Note: In a try ... raise block because reading of _model_data
-        # raises an AttributeError in ThriftModel.__init__, the value is first
-        # being set.
+        # raises an AttributeError in ThriftModel.__init__, when the
+        # attribute is initialized.
         try:
             model_data = object.__getattribute__(self, '_model_data')
             # If a model field name matches, return its value
@@ -247,15 +288,47 @@ class ThriftModel(TBase):
         return deserialize(cls, stream, protocol_factory, protocol_options)
 
     @classmethod
-    def make_thrift_spec(cls, field_dict):
-        # TODO: if cls._fields already exists, extend it instead of replacing it.
-        # sort dict by field creation order
+    def _convert_field_thrift_spec_to_thriftmodel(cls, thrift_spec):
+        # verify that the id and name of the field is set
+        return None  # TODO
+
+    @classmethod
+    def _get_inherited_fields_from_thrift_spec(cls, thrift_spec):
+        thrift_spec_fields = []
+        for field_thrift_spec in thrift_spec[1:]:
+            converted_field = cls._convert_field_thrift_spec_to_thriftmodel(field_thrift_spec)
+            thrift_spec_fields.append(converted_field)
+        return thrift_spec_fields
+
+    @classmethod
+    def _get_inherited_fields(cls):
+        # Inherited fields can come from cls.thrift_spec or
+        # cls._fields_by_name
+        # note that once make_thrift_spec() has run, this
+        # will also return the fields of the current class.
+        inherited_fields = {}  # id -> field model def
+        thrift_spec = []
+        if hasattr(cls, 'thrift_spec'):
+            thrift_spec = cls.thrift_spec
+        thrift_spec_fields = cls._get_inherited_fields_from_thrift_spec(thrift_spec)
+
+    @classmethod
+    def _field_dict_to_field_list(cls, field_dict):
+        """ Return a sorted list of fields based on
+            field creation order, setting field names."""
+        # Then, we process the contents of field_dict
         fields = sorted([(k,v) for k,v in field_dict.iteritems()],
             key=lambda x:x[1].creation_count)
         # set missing field names
         for name, field_data in fields:
             if field_data.thrift_field_name is None:
                 field_data.thrift_field_name = name
+        return fields
+
+    @classmethod
+    def make_thrift_spec(cls, field_dict):
+        # TODO: if cls._fields already exists, extend it instead of replacing it.
+        fields = cls._field_dict_to_field_list(field_dict)
         # reuse existing thrift_spec if possible
         if not hasattr(cls, 'thrift_spec'):
             cls.thrift_spec = [None]
@@ -305,3 +378,13 @@ class RecursiveThriftModel(ThriftModel):
 
 class UnboxedUnion(object):
     is_unboxed_union = True
+
+def collect_field_type_constructors():
+    cons_list = {}
+    for key in dir(sys.modules[__name__]):
+        value = getattr(sys.modules[__name__], key)
+        if inspect.isclass(value) and\
+            issubclass(value, ThriftField) and\
+            hasattr(value, "field_type_id"):
+            cons_list[value.field_type_id] = value
+    return cons_list

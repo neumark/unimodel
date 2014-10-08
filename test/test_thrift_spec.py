@@ -37,7 +37,7 @@ class ThriftSpecTestCase(TestCase):
         FIELD_ID=1
         DEFAULT="1"
         field = ThriftField(
-            FIELD_TYPE,
+            field_type_id=FIELD_TYPE,
             thrift_field_name=FIELD_NAME,
             field_id=FIELD_ID,
             default=DEFAULT)
