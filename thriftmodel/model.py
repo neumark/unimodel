@@ -74,7 +74,7 @@ class ParametricThriftField(ThriftField):
         # Run an validators on the container type itself.
         # Eg: if we want to chech that a list has 4 elements,
         # the validator would be on the list itself.
-        super(CollectionThriftField, self).validate(container)
+        super(ParametricThriftField, self).validate(container)
         # Validate the elements of the container if there are validators defined.
         self._validate_elements(container, self.type_parameter)
 
@@ -115,14 +115,6 @@ class UnionField(StructField):
     def __init__(self, type_parameter, **kwargs):
         super(UnionField, self).__init__(type_parameter, is_boxed=False, **kwargs)
         self.is_boxed = is_boxed
-
-class ListField(CollectionThriftField):
-    def __init__(self, type_parameter, **kwargs):
-        super(ListField, self).__init__(TType.LIST, type_parameter, **kwargs)
-
-class SetField(CollectionThriftField):
-    def __init__(self, type_parameter, **kwargs):
-        super(SetField, self).__init__(TType.SET, type_parameter, **kwargs)
 
 class ListField(ParametricThriftField):
     field_type_id = TType.LIST
