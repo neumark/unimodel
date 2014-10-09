@@ -14,6 +14,9 @@ class ValidationException(Exception):
 class UndefinedFieldException(Exception):
     pass
 
+def thrift_field_id_to_name(field_type_id):
+    return TType._VALUES_TO_NAMES[field_type_id].lower()
+
 class ThriftField(object):
     _field_creation_counter = 0
 
@@ -46,7 +49,7 @@ class ThriftField(object):
             validator.validate(value)
 
     def thrift_type_name(self):
-        return TType._VALUES_TO_NAMES[self.field_type_id].lower()
+        return thrift_field_id_to_name(self.field_type_id)
 
     def to_tuple(self):
         return (self.field_id, self.field_type_id, self.thrift_field_name, None, self.default,)
@@ -79,7 +82,9 @@ class ParametricThriftField(ThriftField):
         self._validate_elements(container, self.type_parameter)
 
     def thrift_type_name(self):
-        return "%s<%s>" % (TType._VALUES_TO_NAMES[self.field_type_id].lower(), self.type_parameter.thrift_type_name())
+        return "%s<%s>" % (
+            thrift_field_id_to_name(self.field_type_id),
+            self.type_parameter.thrift_type_name())
 
     def to_tuple(self):
         return (self.field_id, self.field_type_id, self.thrift_field_name, self.get_type_parameter(), self.default,)
@@ -109,9 +114,10 @@ class StructField(ParametricThriftField):
         return self.type_parameter.thrift_type_name()
 
     def get_type_parameter(self):
-        return self.type_parameter.to_tuple()[3] or None
+        return self.type_parameter.to_tuple()[3]
 
 class UnionField(StructField):
+    is_union = True
     def __init__(self, type_parameter, **kwargs):
         super(UnionField, self).__init__(type_parameter, is_boxed=False, **kwargs)
         self.is_boxed = is_boxed
@@ -154,7 +160,7 @@ class MapField(ParametricThriftField):
 
     def thrift_type_name(self):
         return "%s<%s, %s>" % (
-            TType._VALUES_TO_NAMES[self.field_type_id].lower(),
+            thrift_field_id_to_name(self.field_type_id),
             self.key_type_parameter.thrift_type_name(),
             self.value_type_parameter.thrift_type_name())
 
@@ -188,7 +194,7 @@ class ThriftModelMetaclass(type):
     def __init__(cls, name, bases, dct):
         super(ThriftModelMetaclass, cls).__init__(name, bases, dct)
         fields = dict([(k,v) for k,v in dct.iteritems() if isinstance(v, ThriftField)])
-        cls.make_thrift_spec(fields)
+        cls.apply_thrift_spec(fields)
 
 class ThriftModel(TBase):
 
@@ -318,16 +324,31 @@ class ThriftModel(TBase):
         return fields
 
     @classmethod
+    def apply_thrift_spec(cls, fields):
+        thrift_spec_attr = cls.make_thrift_spec(fields)
+        for attr_name, attr_value in thrift_spec_attr.items():
+            setattr(cls, attr_name, attr_value)
+
+
+    @classmethod
     def make_thrift_spec(cls, field_dict):
+        """ Returns a dictionary of attributes which will
+            be set on the class by the metaclass. These
+            attributes are:
+            _fields_by_id
+            _fields_by_name
+            thrift_spec
+        """
         # TODO: if cls._fields already exists, extend it instead of replacing it.
         fields = cls._field_dict_to_field_list(field_dict)
         # reuse existing thrift_spec if possible
         if not hasattr(cls, 'thrift_spec'):
-            cls.thrift_spec = [None]
-        if type(cls.thrift_spec) == list:
-            thrift_spec_list = cls.thrift_spec
+            thrift_spec_list = [None]
         else:
-            thrift_spec_list = list(cls.thrift_spec)
+            if type(cls.thrift_spec) == list:
+                thrift_spec_list = cls.thrift_spec
+            else:
+                thrift_spec_list = list(cls.thrift_spec)
         # replace -1 field ids with the next available positive integer
         taken_field_ids = set([f[0] for f in cls.thrift_spec[1:]])
         next_field_id = 1
@@ -343,11 +364,13 @@ class ThriftModel(TBase):
             thrift_spec_list.append(field_tuple)
         # thrift_spec can be a list or a tuple
         # we only need to set it here in the latter case
+        attr_dict = {}
         if cls.thrift_spec != thrift_spec_list:
-            cls.thrift_spec = tuple(thrift_spec_list)
+            attr_dict['thrift_spec'] = tuple(thrift_spec_list)
         # set helper dicts on class so field definitions can be accessed easily
-        cls._fields_by_id = dict([(v.field_id, (k,v)) for k,v in fields])
-        cls._fields_by_name = dict([(k,v) for k,v in fields])
+        attr_dict['_fields_by_id'] = dict([(v.field_id, (k,v)) for k,v in fields])
+        attr_dict['_fields_by_name'] = dict([(k,v) for k,v in fields])
+        return attr_dict
 
     @classmethod
     def to_tuple(cls):

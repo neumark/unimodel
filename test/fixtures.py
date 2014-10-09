@@ -12,7 +12,7 @@ class NodeData(ThriftModel):
 class TreeNode(RecursiveThriftModel):
     pass
 
-TreeNode.make_thrift_spec({
+TreeNode.apply_thrift_spec({
         'children': ListField(TreeNode),
         'data': StructField(NodeData)})
 
