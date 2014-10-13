@@ -16,8 +16,8 @@ from thrift.transport import TSSLSocket
 from thrift.transport import THttpClient
 from thrift.protocol import TBinaryProtocol
 
-from test_resources.py import Child
-from test_resources.py.ttypes import *
+from compiled.py import Child
+from compiled.py.ttypes import *
 
 if len(sys.argv) <= 1 or sys.argv[1] == '--help':
   print('')

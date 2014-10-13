@@ -7,13 +7,13 @@
 #
 
 from thrift.Thrift import TType, TMessageType, TException, TApplicationException
-import test_resources.py.Base
+import compiled.py.Base
 from ttypes import *
 from thrift.Thrift import TProcessor
 from thrift.protocol.TBase import TBase, TExceptionBase
 
 
-class Iface(test_resources.py.Base.Iface):
+class Iface(compiled.py.Base.Iface):
   def get_size(self, arg):
     """
     Parameters:
@@ -22,9 +22,9 @@ class Iface(test_resources.py.Base.Iface):
     pass
 
 
-class Client(test_resources.py.Base.Client, Iface):
+class Client(compiled.py.Base.Client, Iface):
   def __init__(self, iprot, oprot=None):
-    test_resources.py.Base.Client.__init__(self, iprot, oprot)
+    compiled.py.Base.Client.__init__(self, iprot, oprot)
 
   def get_size(self, arg):
     """
@@ -62,9 +62,9 @@ class Client(test_resources.py.Base.Client, Iface):
     raise TApplicationException(TApplicationException.MISSING_RESULT, "get_size failed: unknown result");
 
 
-class Processor(test_resources.py.Base.Processor, Iface, TProcessor):
+class Processor(compiled.py.Base.Processor, Iface, TProcessor):
   def __init__(self, handler):
-    test_resources.py.Base.Processor.__init__(self, handler)
+    compiled.py.Base.Processor.__init__(self, handler)
     self._processMap["get_size"] = Processor.process_get_size
 
   def process(self, iprot, oprot):

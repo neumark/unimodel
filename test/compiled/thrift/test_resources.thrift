@@ -1,4 +1,4 @@
-namespace py test_resources.py
+namespace py compiled.py
 
 struct SomeStruct {
     1: optional string company,
