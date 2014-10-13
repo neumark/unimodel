@@ -43,6 +43,11 @@ class ThriftField(object):
         self.required=required
         self.validators = validators
 
+    def type_equals(self, other):
+        return self.field_type_id == other.field_type_id and\
+               (self.type_parameter == other.type_parameter) or\
+               self.type_parameter is not None and self.type_parameter.type_equals(other.type_parameter)
+
     def validate(self, value):
         for validator in (self.validators or []):
             # TODO: we may want to save the output of validators for warnings and messages
@@ -286,9 +291,44 @@ class ThriftModel(TBase):
         return deserialize(cls, stream, protocol_factory, protocol_options)
 
     @classmethod
+    def _create_thriftmodel_field(cls, field_type_id, type_parameter, **init_kwargs): 
+        # If possible get value from constructor dict
+        cons = collect_field_type_constructors().get(field_type_id, None)
+        if cons is None:
+            # Default to ThriftField
+            cons = ThriftField
+        init_args = []
+        init_kwargs['field_type_id'] = field_type_id
+        if type_parameter is not None:
+            if field_type_id == TType.MAP:
+                # key type
+                init_args.append(
+                    cls._create_thriftmodel_field(type_parameter[0], type_parameter[1]))
+                # value type
+                init_args.append(
+                    cls._create_thriftmodel_field(type_parameter[2], type_parameter[3]))
+            elif field_type_id in [TType.LIST, TType.SET]:
+                init_args.append(
+                    cls._create_thriftmodel_field(
+                        type_parameter[0], type_parameter[1]))
+            elif field_type_id == TType.STRUCT:
+                init_args.append(type_parameter[0])
+        return cons(*init_args, **init_kwargs)
+
+    @classmethod
     def _convert_field_thrift_spec_to_thriftmodel(cls, thrift_spec):
         # verify that the id and name of the field is set
-        return None  # TODO
+        field_id = thrift_spec[0]
+        field_type_id = thrift_spec[1]
+        thrift_field_name = thrift_spec[2]
+        type_parameter = thrift_spec[3]
+        default = thrift_spec[4]
+        return cls._create_thriftmodel_field(
+                field_type_id,
+                type_parameter,
+                thrift_field_name=thrift_field_name,
+                field_id=field_id,
+                default=default)
 
     @classmethod
     def _get_inherited_fields_from_thrift_spec(cls, thrift_spec):
@@ -297,6 +337,15 @@ class ThriftModel(TBase):
             converted_field = cls._convert_field_thrift_spec_to_thriftmodel(field_thrift_spec)
             thrift_spec_fields.append(converted_field)
         return thrift_spec_fields
+
+    @classmethod
+    def _merge_field_lists(cls, original_list, list_to_merge, overwrite_if_conflict=False):
+        # Based on field id, or thrift field name, replaces each
+        # field in the original list with the field in the list_to_merge
+        # with the same thrift_field_name. If the field types + ids do not match
+        # there is a conflict. In this case either an exception is thrown or
+        # the field def from list_to_merge wins.
+        return original_list
 
     @classmethod
     def _get_inherited_fields(cls):
@@ -308,7 +357,12 @@ class ThriftModel(TBase):
         thrift_spec = []
         if hasattr(cls, 'thrift_spec'):
             thrift_spec = cls.thrift_spec
-        thrift_spec_fields = cls._get_inherited_fields_from_thrift_spec(thrift_spec)
+        fields = cls._get_inherited_fields_from_thrift_spec(thrift_spec)
+        if hasattr(cls, '_fields_by_name'):
+            fields = cls._merge_field_lists(
+                fields,
+                sorted(cls._fields_by_name.values(), key=lambda x:x[1].creation_count))
+        return fields
 
     @classmethod
     def _field_dict_to_field_list(cls, field_dict):
@@ -398,6 +452,8 @@ def collect_field_type_constructors():
     cons_list = {}
     for key in dir(sys.modules[__name__]):
         value = getattr(sys.modules[__name__], key)
+        if value == UnionField:
+            continue  # don't save unionfield, use StructField instead.
         if inspect.isclass(value) and\
             issubclass(value, ThriftField) and\
             hasattr(value, "field_type_id"):

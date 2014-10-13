@@ -1,3 +1,4 @@
+from thrift.protocol.TBase import TBase, TExceptionBase
 from thrift.Thrift import TType
 from thriftmodel.model import (
         ThriftField, ThriftModel, RecursiveThriftModel, IntField, ListField,
