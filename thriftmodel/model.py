@@ -14,6 +14,121 @@ class ValidationException(Exception):
 class UndefinedFieldException(Exception):
     pass
 
+class ThriftFieldMergeException(Exception):
+    def __init__(self, msg,
+            to_merge_py_name=None, to_merge_field=None,
+            original_py_name=None, original_field=None):
+        Exception.__init__(self, message)
+        self.to_merge_py_name=to_merge_py_name
+        self.to_merge_field=to_merge_field
+        self.original_py_name=original_py_name
+        self.original_field=original_field
+
+class FieldMerger(object):
+    """
+    Based on field id, or thrift field name, replaces each
+    field in the original list with the field in the list_to_merge
+    ith the same thrift_field_name. If the field types + ids do not match
+    there is a conflict. In this case either an exception is thrown or
+    the field def from list_to_merge wins.
+    both original_list and list_to_merge should be lists of 
+    (python_field_name, field_object) tuples.
+
+    The assumption is that both original_list and list_to_merge are
+    valid in themselves (no duplicate, no duplicate thrift of
+    python field names). It is assumed that original_list has no
+    non-positive field_ids, but this is not a requirement for
+    list_to_merge.
+
+    Possible conflicts introduced by the merge:
+    * Duplicate field id
+    * Duplicate field name (thrift or python)
+    * Field id / name mismatch (different name for same id in the two lists)
+    * Field type mismatch (same id, name in both lists, but different type)
+      NOTE: types are not currently checked.
+    """
+ 
+    def __init__(
+            self,
+            original_fields,
+            to_merge_fields,
+            overwrite_if_conflict=False):
+        self.original_fields = original_fields
+        self.to_merge_fields = to_merge_fields
+        self.overwrite_if_conflict = overwrite_if_conflict
+        self.merged_field_ids = []
+        self.conflicting_field_ids = []
+
+    def original_field_ix_by_name(self, thrift_field_name):
+        candidate_list = []
+        for original_field_ix in xrange(0, len(self.original_fields)):
+            original_py_name, original_field = self.original_fields[original_field_ix]
+            if thrift_field_name == original_field.thrift_field_name:
+                candidate_list.append(original_field_ix)
+        return candidate_list
+
+    def attempt_merge(self, original_field_ix, to_merge_field_ix):
+        # the merge is successful if:
+        # 1. both fields have the same field id (or
+        #    to_merge_field.field_id is -1).
+        # 2. both fields have the same thrift_field_name.
+        # 3. both fields have the same python field name.
+        # 4. TODO: check that the types of the fields match.
+        field_indexes = (original_field_ix, to_merge_field_ix)
+        to_merge_py_name, to_merge_field = self.to_merge_fields[to_merge_field_ix]
+        original_py_name, original_field = self.original_fields[original_field_ix]
+        if not to_merge_field.field_id in [original_field.field_id, -1]:
+            self.handle_conflict("field_id mismatch", *field_indexes)
+        elif to_merge_field.thrift_field_name != original_field.thrift_field_name:
+            self.handle_conflict("thrift_field_name mismatch", *field_indexes)
+        elif to_merge_py_name != original_py_name:
+            self.handle_conflict("python field name mismatch", *field_indexes)
+        self.mark_fields_merged(*field_indexes)
+
+    def handle_conflict(self, msg, original_field_ix, to_merge_field_ix):
+        self.conflicting_field_ids.append((original_field_ix, to_merge_field_ix))
+        if not self.overwrite_if_conflict:
+            to_merge_py_name, to_merge_field = self.to_merge_fields[to_merge_field_ix]
+            original_py_name, original_field = self.original_fields[original_field_ix]
+            raise ThriftFieldMergeException(msg,
+                to_merge_py_name, to_merge_field,
+                original_py_name, original_field)
+
+    def mark_fields_merged(self, original_field_ix, to_merge_field_ix):
+        self.merged_field_ids.append((original_field_ix, to_merge_field_ix))
+
+    def get_merge_result(self):
+        merge_result = []
+        merge_map = dict(self.merged_field_ids)
+        # add original fields, substituting in merged fields from
+        # to_merge_fields.
+        for original_field_ix in xrange(0, len(self.original_fields)):
+            if original_field_ix in merge_map:
+                field_data = self.to_merge_fields[merge_map[original_field_ix]]
+            else:
+                field_data = self.original_fields[original_field_ix]
+            merge_result.append(field_data)
+        # Add fields form to_merge_fields which weren't merged with anything
+        # in original_fields
+        merged_field_ix_set = set([pair[1] for pair in self.merged_field_ids])
+        for to_merge_field_ix in xrange(0, len(self.to_merge_fields)):
+            if to_merge_field_ix not in merged_field_ix_set:
+                merge_result.append(self.to_merge_fields[to_merge_field_ix])
+        return merge_result
+
+    def merge(self):
+        for to_merge_field_ix in xrange(0, len(self.to_merge_fields)):
+            to_merge_py_name, to_merge_field = self.to_merge_fields[to_merge_field_ix]
+            # match by thrift_field_name
+            merge_candidates = self.original_field_ix_by_name(to_merge_field.thrift_field_name)
+            # two fields should not have the same id in the original field list
+            if len(merge_candidates) > 1:
+                raise ThriftFieldMergeException("The original field list "+\
+                    "has duplicate thrift_field_names: %s" % ", ".join(merge_candidates))
+            if merge_candidates:
+                self.attempt_merge(merge_candidates[0], to_merge_field_ix)
+        return get_merge_result()
+
 def thrift_field_id_to_name(field_type_id):
     return TType._VALUES_TO_NAMES[field_type_id].lower()
 
@@ -316,7 +431,7 @@ class ThriftModel(TBase):
         return cons(*init_args, **init_kwargs)
 
     @classmethod
-    def _convert_field_thrift_spec_to_thriftmodel(cls, thrift_spec):
+    def _convert_field_spec_to_field(cls, thrift_spec):
         # verify that the id and name of the field is set
         field_id = thrift_spec[0]
         field_type_id = thrift_spec[1]
@@ -332,20 +447,12 @@ class ThriftModel(TBase):
 
     @classmethod
     def _get_inherited_fields_from_thrift_spec(cls, thrift_spec):
-        thrift_spec_fields = []
+        fields = []
         for field_thrift_spec in thrift_spec[1:]:
-            converted_field = cls._convert_field_thrift_spec_to_thriftmodel(field_thrift_spec)
-            thrift_spec_fields.append(converted_field)
-        return thrift_spec_fields
+            converted_field = cls._convert_field_spec_to_field(field_thrift_spec)
+            fields.append((converted_field.thrift_field_name, converted_field))
+        return fields
 
-    @classmethod
-    def _merge_field_lists(cls, original_list, list_to_merge, overwrite_if_conflict=False):
-        # Based on field id, or thrift field name, replaces each
-        # field in the original list with the field in the list_to_merge
-        # with the same thrift_field_name. If the field types + ids do not match
-        # there is a conflict. In this case either an exception is thrown or
-        # the field def from list_to_merge wins.
-        return original_list
 
     @classmethod
     def _get_inherited_fields(cls):
@@ -359,6 +466,7 @@ class ThriftModel(TBase):
             thrift_spec = cls.thrift_spec
         fields = cls._get_inherited_fields_from_thrift_spec(thrift_spec)
         if hasattr(cls, '_fields_by_name'):
+            merger = FieldMerger()
             fields = cls._merge_field_lists(
                 fields,
                 sorted(cls._fields_by_name.values(), key=lambda x:x[1].creation_count))
