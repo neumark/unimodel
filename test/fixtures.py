@@ -2,7 +2,8 @@ from thrift.protocol.TBase import TBase, TExceptionBase
 from thrift.Thrift import TType
 from thriftmodel.model import (
         ThriftField, ThriftModel, RecursiveThriftModel, IntField, ListField,
-        MapField, StringField, StructField, serialize, deserialize)
+        MapField, StringField, StructField, serialize, deserialize,
+        ThriftFieldFactory)
 
 
 class NodeData(ThriftModel):
@@ -13,9 +14,10 @@ class NodeData(ThriftModel):
 class TreeNode(RecursiveThriftModel):
     pass
 
-TreeNode.apply_thrift_spec({
-        'children': ListField(TreeNode),
-        'data': StructField(NodeData)})
+field_factory = ThriftFieldFactory()
+field_factory.apply_thrift_spec(TreeNode, {
+    'children': ListField(TreeNode),
+    'data': StructField(NodeData)})
 
 
 data = TreeNode(

@@ -24,6 +24,21 @@ class ThriftFieldMergeException(Exception):
         self.original_py_name=original_py_name
         self.original_field=original_field
 
+def thrift_field_id_to_name(field_type_id):
+    return TType._VALUES_TO_NAMES[field_type_id].lower()
+
+def collect_field_type_constructors():
+    cons_list = {}
+    for key in dir(sys.modules[__name__]):
+        value = getattr(sys.modules[__name__], key)
+        if value == UnionField:
+            continue  # don't save unionfield, use StructField instead.
+        if inspect.isclass(value) and\
+            issubclass(value, ThriftField) and\
+            hasattr(value, "field_type_id"):
+            cons_list[value.field_type_id] = value
+    return cons_list
+
 class FieldMerger(object):
     """
     Based on field id, or thrift field name, replaces each
@@ -129,8 +144,127 @@ class FieldMerger(object):
                 self.attempt_merge(merge_candidates[0], to_merge_field_ix)
         return get_merge_result()
 
-def thrift_field_id_to_name(field_type_id):
-    return TType._VALUES_TO_NAMES[field_type_id].lower()
+class ThriftFieldFactory(object):
+
+    def create_thriftmodel_field(self, field_type_id, type_parameter, **init_kwargs): 
+        # If possible get value from constructor dict
+        cons = collect_field_type_constructors().get(field_type_id, None)
+        if cons is None:
+            # Default to ThriftField
+            cons = ThriftField
+        init_args = []
+        init_kwargs['field_type_id'] = field_type_id
+        if type_parameter is not None:
+            if field_type_id == TType.MAP:
+                # key type
+                init_args.append(
+                    self.create_thriftmodel_field(type_parameter[0], type_parameter[1]))
+                # value type
+                init_args.append(
+                    self.create_thriftmodel_field(type_parameter[2], type_parameter[3]))
+            elif field_type_id in [TType.LIST, TType.SET]:
+                init_args.append(
+                    self.create_thriftmodel_field(
+                        type_parameter[0], type_parameter[1]))
+            elif field_type_id == TType.STRUCT:
+                init_args.append(type_parameter[0])
+        return cons(*init_args, **init_kwargs)
+
+    def convert_field_spec_to_field(self, thrift_spec):
+        # verify that the id and name of the field is set
+        field_id = thrift_spec[0]
+        field_type_id = thrift_spec[1]
+        thrift_field_name = thrift_spec[2]
+        type_parameter = thrift_spec[3]
+        default = thrift_spec[4]
+        return self.create_thriftmodel_field(
+                field_type_id,
+                type_parameter,
+                thrift_field_name=thrift_field_name,
+                field_id=field_id,
+                default=default)
+
+    def get_inherited_fields_from_thrift_spec(self, thrift_spec):
+        fields = []
+        for field_thrift_spec in thrift_spec[1:]:
+            converted_field = self.convert_field_spec_to_field(field_thrift_spec)
+            fields.append((converted_field.thrift_field_name, converted_field))
+        return fields
+
+    def get_inherited_fields(self, cls):
+        # Inherited fields can come from cls.thrift_spec or
+        # cls._fields_by_name
+        # note that once make_thrift_spec() has run, this
+        # will also return the fields of the current class.
+        inherited_fields = {}  # id -> field model def
+        thrift_spec = []
+        if hasattr(cls, 'thrift_spec'):
+            thrift_spec = cls.thrift_spec
+        fields = self.get_inherited_fields_from_thrift_spec(thrift_spec)
+        if hasattr(cls, '_fields_by_name'):
+            merger = FieldMerger(fields, cls._fields_by_name.values())
+            fields = merger.merge()
+        return fields
+
+    def field_dict_to_field_list(self, field_dict):
+        """ Return a sorted list of fields based on
+            field creation order, setting field names."""
+        # Then, we process the contents of field_dict
+        fields = sorted([(k,v) for k,v in field_dict.iteritems()],
+            key=lambda x:x[1].creation_count)
+        # set missing field names
+        for name, field_data in fields:
+            if field_data.thrift_field_name is None:
+                field_data.thrift_field_name = name
+        return fields
+
+    def apply_thrift_spec(self, cls, fields):
+        thrift_spec_attr = self.make_thrift_spec(cls, fields)
+        for attr_name, attr_value in thrift_spec_attr.items():
+            setattr(cls, attr_name, attr_value)
+
+
+    def make_thrift_spec(self, cls, field_dict):
+        """ Returns a dictionary of attributes which will
+            be set on the class by the metaclass. These
+            attributes are:
+            _fields_by_id
+            _fields_by_name
+            thrift_spec
+        """
+        # TODO: if cls._fields already exists, extend it instead of replacing it.
+        fields = self.field_dict_to_field_list(field_dict)
+        # reuse existing thrift_spec if possible
+        if not hasattr(cls, 'thrift_spec'):
+            thrift_spec_list = [None]
+        else:
+            if type(cls.thrift_spec) == list:
+                thrift_spec_list = cls.thrift_spec
+            else:
+                thrift_spec_list = list(cls.thrift_spec)
+        # replace -1 field ids with the next available positive integer
+        taken_field_ids = set([f[0] for f in cls.thrift_spec[1:]])
+        next_field_id = 1
+        for f in fields:
+            field_tuple = f[1].to_tuple()
+            if field_tuple[0] < 1:
+                while next_field_id in taken_field_ids:
+                    next_field_id += 1
+                taken_field_ids.add(next_field_id)
+                field_tuple = (next_field_id,) + field_tuple[1:]
+            # update the field definition if the field_id has changed
+            f[1].field_id = field_tuple[0]
+            thrift_spec_list.append(field_tuple)
+        # thrift_spec can be a list or a tuple
+        # we only need to set it here in the latter case
+        attr_dict = {}
+        if cls.thrift_spec != thrift_spec_list:
+            attr_dict['thrift_spec'] = tuple(thrift_spec_list)
+        # set helper dicts on class so field definitions can be accessed easily
+        attr_dict['_fields_by_id'] = dict([(v.field_id, (k,v)) for k,v in fields])
+        attr_dict['_fields_by_name'] = dict([(k,v) for k,v in fields])
+        return attr_dict
+
 
 class ThriftField(object):
     _field_creation_counter = 0
@@ -155,7 +289,7 @@ class ThriftField(object):
             # TODO: we should probably throw an exception here
             # if field_type_id is < 0
             self.field_type_id = field_type_id
-        self.required=required
+        self.required = required
         self.validators = validators
 
     def type_equals(self, other):
@@ -314,7 +448,8 @@ class ThriftModelMetaclass(type):
     def __init__(cls, name, bases, dct):
         super(ThriftModelMetaclass, cls).__init__(name, bases, dct)
         fields = dict([(k,v) for k,v in dct.iteritems() if isinstance(v, ThriftField)])
-        cls.apply_thrift_spec(fields)
+        field_factory = ThriftFieldFactory()
+        field_factory.apply_thrift_spec(cls, fields)
 
 class ThriftModel(TBase):
 
@@ -405,135 +540,7 @@ class ThriftModel(TBase):
     def deserialize(cls, stream, protocol_factory=default_protocol_factory, protocol_options=None):
         return deserialize(cls, stream, protocol_factory, protocol_options)
 
-    @classmethod
-    def _create_thriftmodel_field(cls, field_type_id, type_parameter, **init_kwargs): 
-        # If possible get value from constructor dict
-        cons = collect_field_type_constructors().get(field_type_id, None)
-        if cons is None:
-            # Default to ThriftField
-            cons = ThriftField
-        init_args = []
-        init_kwargs['field_type_id'] = field_type_id
-        if type_parameter is not None:
-            if field_type_id == TType.MAP:
-                # key type
-                init_args.append(
-                    cls._create_thriftmodel_field(type_parameter[0], type_parameter[1]))
-                # value type
-                init_args.append(
-                    cls._create_thriftmodel_field(type_parameter[2], type_parameter[3]))
-            elif field_type_id in [TType.LIST, TType.SET]:
-                init_args.append(
-                    cls._create_thriftmodel_field(
-                        type_parameter[0], type_parameter[1]))
-            elif field_type_id == TType.STRUCT:
-                init_args.append(type_parameter[0])
-        return cons(*init_args, **init_kwargs)
-
-    @classmethod
-    def _convert_field_spec_to_field(cls, thrift_spec):
-        # verify that the id and name of the field is set
-        field_id = thrift_spec[0]
-        field_type_id = thrift_spec[1]
-        thrift_field_name = thrift_spec[2]
-        type_parameter = thrift_spec[3]
-        default = thrift_spec[4]
-        return cls._create_thriftmodel_field(
-                field_type_id,
-                type_parameter,
-                thrift_field_name=thrift_field_name,
-                field_id=field_id,
-                default=default)
-
-    @classmethod
-    def _get_inherited_fields_from_thrift_spec(cls, thrift_spec):
-        fields = []
-        for field_thrift_spec in thrift_spec[1:]:
-            converted_field = cls._convert_field_spec_to_field(field_thrift_spec)
-            fields.append((converted_field.thrift_field_name, converted_field))
-        return fields
-
-
-    @classmethod
-    def _get_inherited_fields(cls):
-        # Inherited fields can come from cls.thrift_spec or
-        # cls._fields_by_name
-        # note that once make_thrift_spec() has run, this
-        # will also return the fields of the current class.
-        inherited_fields = {}  # id -> field model def
-        thrift_spec = []
-        if hasattr(cls, 'thrift_spec'):
-            thrift_spec = cls.thrift_spec
-        fields = cls._get_inherited_fields_from_thrift_spec(thrift_spec)
-        if hasattr(cls, '_fields_by_name'):
-            merger = FieldMerger()
-            fields = cls._merge_field_lists(
-                fields,
-                sorted(cls._fields_by_name.values(), key=lambda x:x[1].creation_count))
-        return fields
-
-    @classmethod
-    def _field_dict_to_field_list(cls, field_dict):
-        """ Return a sorted list of fields based on
-            field creation order, setting field names."""
-        # Then, we process the contents of field_dict
-        fields = sorted([(k,v) for k,v in field_dict.iteritems()],
-            key=lambda x:x[1].creation_count)
-        # set missing field names
-        for name, field_data in fields:
-            if field_data.thrift_field_name is None:
-                field_data.thrift_field_name = name
-        return fields
-
-    @classmethod
-    def apply_thrift_spec(cls, fields):
-        thrift_spec_attr = cls.make_thrift_spec(fields)
-        for attr_name, attr_value in thrift_spec_attr.items():
-            setattr(cls, attr_name, attr_value)
-
-
-    @classmethod
-    def make_thrift_spec(cls, field_dict):
-        """ Returns a dictionary of attributes which will
-            be set on the class by the metaclass. These
-            attributes are:
-            _fields_by_id
-            _fields_by_name
-            thrift_spec
-        """
-        # TODO: if cls._fields already exists, extend it instead of replacing it.
-        fields = cls._field_dict_to_field_list(field_dict)
-        # reuse existing thrift_spec if possible
-        if not hasattr(cls, 'thrift_spec'):
-            thrift_spec_list = [None]
-        else:
-            if type(cls.thrift_spec) == list:
-                thrift_spec_list = cls.thrift_spec
-            else:
-                thrift_spec_list = list(cls.thrift_spec)
-        # replace -1 field ids with the next available positive integer
-        taken_field_ids = set([f[0] for f in cls.thrift_spec[1:]])
-        next_field_id = 1
-        for f in fields:
-            field_tuple = f[1].to_tuple()
-            if field_tuple[0] < 1:
-                while next_field_id in taken_field_ids:
-                    next_field_id += 1
-                taken_field_ids.add(next_field_id)
-                field_tuple = (next_field_id,) + field_tuple[1:]
-            # update the field definition if the field_id has changed
-            f[1].field_id = field_tuple[0]
-            thrift_spec_list.append(field_tuple)
-        # thrift_spec can be a list or a tuple
-        # we only need to set it here in the latter case
-        attr_dict = {}
-        if cls.thrift_spec != thrift_spec_list:
-            attr_dict['thrift_spec'] = tuple(thrift_spec_list)
-        # set helper dicts on class so field definitions can be accessed easily
-        attr_dict['_fields_by_id'] = dict([(v.field_id, (k,v)) for k,v in fields])
-        attr_dict['_fields_by_name'] = dict([(k,v) for k,v in fields])
-        return attr_dict
-
+    
     @classmethod
     def to_tuple(cls):
         return (-1, TType.STRUCT, cls.__name__, (cls, cls.thrift_spec), None,)
@@ -556,14 +563,4 @@ class RecursiveThriftModel(ThriftModel):
 class UnboxedUnion(object):
     is_unboxed_union = True
 
-def collect_field_type_constructors():
-    cons_list = {}
-    for key in dir(sys.modules[__name__]):
-        value = getattr(sys.modules[__name__], key)
-        if value == UnionField:
-            continue  # don't save unionfield, use StructField instead.
-        if inspect.isclass(value) and\
-            issubclass(value, ThriftField) and\
-            hasattr(value, "field_type_id"):
-            cons_list[value.field_type_id] = value
-    return cons_list
+
