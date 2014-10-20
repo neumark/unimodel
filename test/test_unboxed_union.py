@@ -6,7 +6,7 @@ from thriftmodel.model import serialize, deserialize
 from test.helpers import flatten
 from thriftmodel.TFlexibleJSONProtocol import ReadValidationException, SerializationException
 from thriftmodel.model import (serialize, deserialize,
-        ThriftField, ThriftModel, RecursiveThriftModel, UnboxedUnion,
+        ThriftField, ThriftModel, UnboxedUnion,
         IntField, ListField, MapField, StringField, UTF8Field,
         StructField, serialize, deserialize)
 

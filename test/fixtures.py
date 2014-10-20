@@ -1,7 +1,7 @@
 from thrift.protocol.TBase import TBase, TExceptionBase
 from thrift.Thrift import TType
 from thriftmodel.model import (
-        ThriftField, ThriftModel, RecursiveThriftModel, IntField, ListField,
+        ThriftField, ThriftModel, IntField, ListField,
         MapField, StringField, StructField, serialize, deserialize,
         ThriftFieldFactory)
 
@@ -11,7 +11,7 @@ class NodeData(ThriftModel):
     age = IntField()
     skills = MapField(StringField(), IntField())
 
-class TreeNode(RecursiveThriftModel):
+class TreeNode(ThriftModel):
     pass
 
 field_factory = ThriftFieldFactory()

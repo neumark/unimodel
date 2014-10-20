@@ -1,7 +1,7 @@
 from unittest import TestCase
 from thriftmodel.protocol import Protocol
 from thriftmodel.model import (serialize, deserialize,
-        ThriftField, ThriftModel, RecursiveThriftModel, IntField, ListField,
+        ThriftField, ThriftModel, IntField, ListField,
         MapField, StringField, StructField, serialize, deserialize)
 
 FIELD_NAME1 = 'long-hypenated-name'

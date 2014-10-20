@@ -4,7 +4,7 @@ from thriftmodel.protocol import Protocol
 from test.helpers import flatten
 from thriftmodel.TFlexibleJSONProtocol import ReadValidationException
 from thriftmodel.model import (serialize, deserialize,
-        ThriftField, ThriftModel, RecursiveThriftModel, IntField, ListField,
+        ThriftField, ThriftModel, IntField, ListField,
         MapField, StringField, UTF8Field, StructField, serialize, deserialize,
         ValidationException)
 
