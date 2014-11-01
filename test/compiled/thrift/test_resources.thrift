@@ -1,11 +1,18 @@
 namespace py compiled.py
 
+typedef list<i32> ( cpp.template = "std::list" ) int_linked_list
+
 struct SomeStruct {
     1: optional string company,
     2: optional string ipaddress,
     3: optional i64 timestamp,
     4: optional bool notified
-}
+} (
+    cpp.type = "DenseFoo",
+    python.type = "DenseFoo",
+    java.final = "",
+    annotation.without.value,
+)
 
 typedef string Application
 
@@ -41,7 +48,7 @@ struct A {
 union B {
     1: i64 a,
     2: string b
-}
+} (json.unboxed)
 
 enum T {
     ADD = 1,
@@ -52,7 +59,7 @@ struct C {
   1: required B b,
   2: optional T t,
   3: binary s
-}
+} (json.flattened)
 
 exception InvalidOperation {
   1: i32 what,
@@ -65,7 +72,7 @@ exception BadRequest {
 }
 
 service Base {
-   void ping(),
+   void ping() (dont.retry="true"),
    TDL merge(1:TDL parent1, 2:TDL parent2) throws (1: InvalidOperation ex1),
    oneway void zip()
 }

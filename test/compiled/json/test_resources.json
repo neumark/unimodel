@@ -257,6 +257,10 @@
     ],
     "typedefs": [
         {
+            "name": "int_linked_list",
+            "type": "list<i32>"
+        },
+        {
             "name": "Application",
             "type": "string"
         },

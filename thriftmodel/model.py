@@ -73,9 +73,42 @@ class FieldMerger(object):
         self.overwrite_if_conflict = overwrite_if_conflict
         self.merged_field_ids = []
         self.conflicting_field_ids = []
+        self.assert_fields_valid(original_fields, error_source="original")
+        self.assert_fields_valid(to_merge_fields, allow_nonpositive_field_ids=True, error_source="to_merge")
         self.assert_no_duplicates(original_fields, error_source="original")
         self.assert_no_duplicates(to_merge_fields, allow_default_field_id_duplicates=True, error_source="to merge")
 
+    def assert_fields_valid(
+            self,
+            fields,
+            allow_nonpositive_field_ids=False,
+            error_source=None):
+        # fields is a list of (field_name, field_def) pairs
+        def err(field_ix, message):
+            msg = "field number %(field_ix)s: %(message)s" % {
+                'field_ix': field_ix,
+                'message': message}
+            if error_source is not None:
+                msg = "%s %s" % (error_source, msg)
+            raise ThriftFieldMergeException(msg)
+        def err_invalid_attr(field_ix, invalid_attr):
+            msg = "invalid %(invalid_attr)s attribute (the value is %(invalid_value)s)." % {
+                'invalid_attr': invalid_attr,
+                'invalid_value': str(getattr(fields[field_ix][1], invalid_attr))}
+            err(field_ix, msg)
+        for field_ix in xrange(0, len(fields)):
+            python_field_name, field_definition = fields[field_ix]
+            if not python_field_name:
+                err(field_ix, 'python_field_name has bad value: %s' % str(python_field_name))
+            for attr_name in ['field_id', 'thrift_field_name']:
+                if hasattr(field_definition, attr_name):
+                    if getattr(field_definition, attr_name) is None:
+                        err_invalid_attr(field_ix, attr_name)
+            if field_definition.field_id < 1 and (not allow_nonpositive_field_ids):
+                err_invalid_attr(field_ix, 'field_id')
+
+
+ 
     def assert_no_duplicates(self, fields, allow_default_field_id_duplicates=False, error_source=None):
         # fields is a list of (field_name, field_def) pairs
         def err(duplicate_attr, duplicate_value):
