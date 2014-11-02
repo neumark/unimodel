@@ -13,9 +13,7 @@ class ThriftProtocol(object):
 
     factories = [
         ('binary', TBinaryProtocol.TBinaryProtocolFactory()),
-        ('fastbinary', TBinaryProtocol.TBinaryProtocolAcceleratedFactory()),
         ('json', TJSONProtocol.TJSONProtocolFactory()),
-        ('simple_json', TJSONProtocol.TSimpleJSONProtocolFactory()),
         ('compact', TCompactProtocol.TCompactProtocolFactory())
     ]
 

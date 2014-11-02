@@ -114,7 +114,11 @@ class Unimodel(object):
 
     def write(self, protocol):
         """ this method is called by the thrift protocols """
-        protocol.serializer.write_to_stream(self, protocol)
+        return protocol.serializer.write_to_stream(self, protocol)
+
+    def read(self, protocol):
+        """ this method is called by the thrift protocols """
+        return protocol.serializer.read_from_stream(self, protocol)
 
     def iterkeys(self):
         return itertools.imap(
