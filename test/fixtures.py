@@ -1,24 +1,19 @@
-from thrift.protocol.TBase import TBase, TExceptionBase
-from thrift.Thrift import TType
-from thriftmodel.model import (
-        ThriftField, ThriftModel, IntField, ListField,
-        MapField, StringField, StructField, serialize, deserialize,
-        ThriftFieldFactory)
+from thriftmodel.model import Unimodel, Field, FieldFactory
+from thriftmodel import types
 
 
-class NodeData(ThriftModel):
-    name = StringField()
-    age = IntField()
-    skills = MapField(StringField(), IntField())
+class NodeData(Unimodel):
+    name    = Field(types.UTF8)
+    age     = Field(types.Int)
+    skills  = Field(types.Map(types.UTF8, types.Int))
 
-class TreeNode(ThriftModel):
+class TreeNode(Unimodel):
     pass
 
-field_factory = ThriftFieldFactory()
-field_factory.apply_thrift_spec(TreeNode, {
-    'children': ListField(TreeNode),
-    'data': StructField(NodeData)})
-
+field_factory = FieldFactory()
+field_factory.add_fields(TreeNode, {
+    'children': Field(types.List(types.Struct(TreeNode))),
+    'data': Field(types.Struct(NodeData))})
 
 data = TreeNode(
         children=[
