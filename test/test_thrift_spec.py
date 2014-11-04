@@ -1,8 +1,7 @@
 from unittest import TestCase
 from thrift.Thrift import TType
-from thriftmodel.model import (
-        ThriftModel, ThriftField, IntField, ListField, MapField, 
-        StringField, StructField)
+from thriftmodel.model import Unimodel, Field
+from thriftmodel.types import *
 
 class ThriftSpecTestCase(TestCase):
     """
@@ -36,9 +35,9 @@ class ThriftSpecTestCase(TestCase):
         FIELD_NAME="apple"
         FIELD_ID=1
         DEFAULT="1"
-        field = ThriftField(
-            field_type_id=FIELD_TYPE,
-            thrift_field_name=FIELD_NAME,
+        field = Field(
+            field_type=FieldType,
+            field_name=FIELD_NAME,
             field_id=FIELD_ID,
             default=DEFAULT)
         self.assertEquals(field.to_tuple(), 

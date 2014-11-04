@@ -4,37 +4,26 @@ class ThriftTypeInfo(object):
 
     def __init__(
             self,
+            field_type,
             type_id,
             annotations=None,
             is_binary=False,
             is_union=False):
+        self.field_type = field_type
         self.type_id = type_id
         self.annotations = annotations
         self.is_binary = is_binary
         self.is_union = is_union
-        # This refence is set in the constructor
-        # of FieldType
-        self.field_type = None
 
     def type_name(self):
         name = TType._VALUES_TO_NAMES[self.type_id].lower()
+        if name == "string" and self.is_binary:
+            name = "binary"
+        if name == "struct" and self.is_union:
+            name = "union"
         if self.field_type.type_parameters:
             name += "<%s>" % ", ".join([t.type_name() for t in self.field_type.type_parameters])
         return name
-
-class StructWrapper(object):
-    """ A wrapper around unimodels to provide thrift-specific methods like
-        read() and write() """
-
-    def __init__(self, obj):
-        super(StructWrapper, self).__init__(obj)
-        self._obj = obj
-        
-    def __getattr__(self, attrib):
-        return getattr(self._obj, attrib)
-
-    def write(self, *args, **kwargs):
-        import pdb;pdb.set_trace()
 
 class ThriftSpecFactory(object):
 
@@ -59,7 +48,7 @@ class ThriftSpecFactory(object):
     def get_spec_type_parameter(self, field_type):
         """ Returns value 3 of the element in thrift_spec which defines this field. """
         # structs are a special case
-        if field_type.thrift_type_info.type_id == TType.STRUCT:
+        if field_type.extra_type_info['thrift'].type_id == TType.STRUCT:
             interface_class = field_type.python_type
             implementation_class = self.model_registry.lookup(interface_class)
             return (implementation_class, self.get_spec(implementation_class))
@@ -70,7 +59,7 @@ class ThriftSpecFactory(object):
         spec_list = []
         for t in field_type.type_parameters:
             # for each type_parameter, first add the type's id
-            spec_list.append(t.thrift_type_info.type_id)
+            spec_list.append(t.extra_type_info['thrift'].type_id)
             # then the type's parameters
             spec_list.append(self.get_spec_type_parameter(t))
         return spec_list
@@ -78,7 +67,7 @@ class ThriftSpecFactory(object):
     def get_spec_for_field(self, field):
         return (
             field.field_id,
-            field.field_type.thrift_type_info.type_id,
+            field.field_type.extra_type_info['thrift'].type_id,
             field.field_name,
             self.get_spec_type_parameter(field.field_type),
             field.default,)

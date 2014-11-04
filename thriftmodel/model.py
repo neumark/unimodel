@@ -65,7 +65,6 @@ class Field(object):
             field_id=-1,
             default=None,
             required=None,
-            validators=None,
             annotations=None):
         self.creation_count = Field._field_creation_counter
         Field._field_creation_counter += 1
@@ -78,15 +77,11 @@ class Field(object):
         self.field_name = field_name
         self.default = default
         self.required = required
-        self.validators = validators
         self.annotations = annotations
 
     def validate(self, value):
         # first, validate the type of the value
         self.field_type.validate(value)
-        for validator in (self.validators or []):
-            # TODO: we may want to save the output of validators for warnings and messages
-            validator.validate(value)
 
 class UnimodelMetaclass(type):
     def __init__(cls, name, bases, dct):
@@ -183,7 +178,7 @@ class Unimodel(object):
             if v.required and self._model_data.get(v.field_id, None) is None:
                 raise ValidationException("Required field %s (id %s) not set" % (k, v.field_id))
             # Run any field validators
-            v.validate(self._model_data.get(v.field_id, None))
+            v.field_type.validate(self._model_data.get(v.field_id, None))
         # Run the validator for the model itself (if it is set)
         if hasattr(self, 'validators'):
             for validator in (self.validators or []):
