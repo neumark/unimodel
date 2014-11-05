@@ -1,7 +1,8 @@
 from unittest import TestCase
 from thrift.Thrift import TType
 from thriftmodel.model import Unimodel, Field
-from thriftmodel.types import *
+from thriftmodel import types
+from thriftmodel.wireformat_thrift.type_info import ThriftSpecFactory
 
 class ThriftSpecTestCase(TestCase):
     """
@@ -30,33 +31,42 @@ class ThriftSpecTestCase(TestCase):
       )
     """
 
+    def __init__(self, *args, **kwargs):
+        super(ThriftSpecTestCase, self).__init__(*args, **kwargs)
+        self.spec_factory = ThriftSpecFactory()
+
+    def get_field_spec(self, field):
+        return self.spec_factory.get_spec_for_field(field)
+
     def test_simple_field(self):
-        FIELD_TYPE=200
+        FIELD_TYPE=types.Int()
         FIELD_NAME="apple"
         FIELD_ID=1
         DEFAULT="1"
         field = Field(
-            field_type=FieldType,
+            field_type=FIELD_TYPE,
             field_name=FIELD_NAME,
             field_id=FIELD_ID,
             default=DEFAULT)
-        self.assertEquals(field.to_tuple(), 
-                (FIELD_ID, FIELD_TYPE, FIELD_NAME, None, DEFAULT))
+        self.assertEquals(self.get_field_spec(field), 
+                (FIELD_ID, FIELD_TYPE.extra_type_info['thrift'].type_id, FIELD_NAME, None, DEFAULT))
 
     def test_list_field(self):
-        field = ListField(IntField())
-        self.assertEquals(field.to_tuple(), 
-            (-1, TType.LIST, None, (TType.I64, None), None))
+        field = Field(types.List(types.Int))
+        self.assertEquals(self.get_field_spec(field), 
+            (-1, TType.LIST, None, [TType.I64, None], None))
 
     def test_map_field(self):
-        field = MapField(IntField(), StringField())
-        self.assertEquals(field.to_tuple(), 
-            (-1, TType.MAP, None, (TType.I64, None, TType.STRING, None), None))
+        field = Field(types.Map(types.Int, types.UTF8))
+        self.assertEquals(self.get_field_spec(field), 
+            (-1, TType.MAP, None, [TType.I64, None, TType.STRING, None], None))
 
     def test_struct_field(self):
         """ a thriftmodel's spec is part of a StructFields
             spec (if the struct field has the model's type) """
-        class F(ThriftModel):
-            f = IntField()
-        self.assertEquals(F.thrift_spec, StructField(F).to_tuple()[3][1])
-
+        field = Field(types.Int)
+        class F(Unimodel):
+            f = field
+        self.assertEquals(
+            self.spec_factory.get_spec_for_struct(F),
+            [None, self.get_field_spec(field)])

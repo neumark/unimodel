@@ -27,8 +27,11 @@ class ThriftTypeInfo(object):
 
 class ThriftSpecFactory(object):
 
-    def __init__(self, model_registry):
+    def __init__(self, model_registry=None):
         self.model_registry = model_registry
+        if self.model_registry is None:
+            from thriftmodel.model import ModelRegistry
+            self.model_registry = ModelRegistry
         self._spec_cache = {}
 
     def get_spec(self, struct_class):
