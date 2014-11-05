@@ -1,15 +1,15 @@
 from unittest import TestCase
-from thriftmodel.protocol import Protocol
-from thriftmodel.model import (serialize, deserialize,
-        ThriftField, ThriftModel, IntField, ListField,
-        MapField, StringField, StructField, serialize, deserialize)
+from thrift.Thrift import TType
+from thriftmodel.model import Unimodel, Field
+from thriftmodel import types
+from thriftmodel.wireformat_thrift.type_info import ThriftSpecFactory
 
 FIELD_NAME1 = 'long-hypenated-name'
 FIELD_NAME2 = 'a:""f'
 
-class FieldNameTestClass(ThriftModel):
-    shortname = StringField(thrift_field_name=FIELD_NAME1)
-    f = IntField(thrift_field_name=FIELD_NAME2)
+class FieldNameTestClass(Unimodel):
+    shortname = Field(types.UTF8, field_name=FIELD_NAME1)
+    f = Field(types.Int, field_name=FIELD_NAME2)
 
 
 class ProtocolTestCase(TestCase):
