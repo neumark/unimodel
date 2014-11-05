@@ -1,6 +1,7 @@
 from unimodel.validation import (ValidationException, ValueTypeException)
 from unimodel.backends.thrift.schema import ThriftTypeData, TType
 from unimodel.metadata import Metadata
+from unimodel.validation import is_str
 
 def instantiate_if_class(t):
     # If they left off the parenthesis (eg: Field(Int)),
@@ -19,18 +20,27 @@ class FieldType(object):
             self.type_parameters = []
         self.metadata = metadata
 
-    def validate(self, value):
-        # check type of value
-        if type(value) != self.python_type:
-            msg = "Expecting type %s, got %s instead (value was %s)" % (
-                str(self.python_type),
-                str(type(value)),
-                str(value))
-            raise ValueTypeException(msg)
+    def run_custom_validators(self, value):
         # run custom validators (if any)
         if self.metadata.validators:
             for validator in self.metadata.validators:
                 validator.validate(value)
+
+    def validate(self, value):
+        # check type of value
+        if type(value) != self.python_type:
+            str_value = "<nonprintable value>"
+            try:
+                str_value = str(value)
+            except:
+                pass
+            msg = "Expecting type %s, got %s instead (value was %s)" % (
+                str(self.python_type),
+                str(type(value)),
+                str_value)
+            raise ValueTypeException(msg)
+        self.run_custom_validators(value)
+
 
 class BasicType(FieldType):
     """Descendant classes must define thrift_type_id and python_type."""
@@ -79,9 +89,22 @@ class Bool(BasicType):
     thrift_type_id = TType.BOOL
 
 class UTF8(BasicType):
-    # TODO: unicode types for python2 fail validation
     python_type = str
     thrift_type_id = TType.STRING
+
+    def validate(self, value):
+        # check type of value
+        if not is_str(value):
+            str_value = "<nonprintable value>"
+            try:
+                str_value = str(value)
+            except:
+                pass
+            msg = "Expecting type string, got %s instead (value was %s)" % (
+                str(type(value)),
+                str_value)
+            raise ValueTypeException(msg)
+        self.run_custom_validators(value)
 
 class Binary(UTF8):
     python_type = str

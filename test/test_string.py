@@ -12,7 +12,7 @@ class ExampleClass(Unimodel):
 
 class StringTestCase(TestCase):
 
-    def nonworking_test_unicode_and_binary(self):
+    def test_unicode_and_binary(self):
         test_string1 = unichr(40960)
         test_string2 = b"alma"
         data = ExampleClass(u=test_string1, s=test_string2)
