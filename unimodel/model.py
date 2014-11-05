@@ -11,12 +11,13 @@ class FieldFactory(object):
 
     def field_dict_to_field_list(self, field_dict):
         # Then, we process the contents of field_dict
-        fields = [(k,v) for k,v in field_dict.iteritems()]
+        field_list = []
+        for field_name, field in field_dict.iteritems():
         # set missing field names
-        for name, field_data in fields:
-            if field_data.field_name is None:
-                field_data.field_name = name
-        return fields
+            if field.field_name is None:
+                field.field_name = field_name
+            field_list.append(field)
+        return field_list
 
     def add_fields(self, cls, fields=None):
         thrift_spec_attr = self.get_field_definition(cls, fields)
@@ -27,11 +28,11 @@ class FieldFactory(object):
     def replace_default_field_ids(self, fields):
         # replace -1 field ids with the next available positive integer
         # fields is a list of (python_field_name, field_def) pairs.
-        taken_field_ids = set([f[1].field_id for f in fields])
+        taken_field_ids = set([f.field_id for f in fields])
         next_field_id = 1
         # sort fields by creation count
-        fields = sorted(fields, key=lambda x:x[1].creation_count)
-        for field_name, field in fields:
+        fields = sorted(fields, key=lambda f:f.creation_count)
+        for field in fields:
             if field.field_id < 1:
                 while next_field_id in taken_field_ids:
                     next_field_id += 1
@@ -52,8 +53,8 @@ class FieldFactory(object):
         # we only need to set it here in the latter case
         # because a list thrift_spec is already an attr of cls.
         attr_dict = {
-            '_fields_by_id': dict([(v.field_id, (k,v)) for k,v in fields]),
-            '_fields_by_name': dict([(k,v) for k,v in fields])}
+            '_fields_by_id': dict([(field.field_id, field) for field in fields]),
+            '_fields_by_name': dict([(field.field_name, field) for field in fields])}
         return attr_dict
 
 class Field(object):
@@ -103,7 +104,7 @@ class Unimodel(object):
             setattr(self, field_name, value)
 
     def __repr__(self):
-        L = ['%s=%r' % (self._fields_by_id[field_id][0], value)
+        L = ['%s=%r' % (self._fields_by_id[field_id].field_name, value)
             for field_id, value in self._model_data.iteritems()]
         return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
 
@@ -116,18 +117,13 @@ class Unimodel(object):
         return protocol.serializer.read_from_stream(self, protocol)
 
     def iterkeys(self):
-        return itertools.imap(
-                lambda pair: self._fields_by_id[pair[0]][1].field_name,
-                itertools.ifilter(lambda pair: pair[1] is not None, self._model_data.iteritems()))
+        return self._fields_by_name.keys()
 
     def _field_name_to_field_id(self, field_name):
-        field = [f[1] for f in self._fields_by_id.values() if f[1].field_name == field_name]
-        if len(field) < 1:
-            raise KeyError(field_name)
-        return field[0].field_id
+        return self._fields_by_name[field_name].field_id
 
     def __getitem__(self, field_name):
-        return self._model_data[self._field_name_to_field_id(field_name)]
+        return self._model_data.get(self._field_name_to_field_id(field_name), None)
 
     def __setitem__(self, field_name, value):
         self._model_data[self._field_name_to_field_id(field_name)] = value
@@ -138,6 +134,9 @@ class Unimodel(object):
 
     def __iter__(self):
         return self.iterkeys()
+
+    def items(self):
+        return iter([(self._fields_by_id[i[0]].field_name, i[1]) for i in self._model_data.items()])
 
     def __getattribute__(self, name):
         # check in model_data first

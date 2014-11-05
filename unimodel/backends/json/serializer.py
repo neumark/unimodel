@@ -1,15 +1,7 @@
 import base64
 import json
 import traceback
-from StringIO import StringIO
 from unimodel.backends.base import Serializer
-
-def set_field_value(thrift_obj, field_id, value):
-    if hasattr(thrift_obj, "_set_value_by_thrift_field_id"):
-        thrift_obj._set_value_by_thrift_field_id(field_id, value)
-    else:
-        field_spec = [f for f in thrift_obj.thrift_spec[1:] if f[0] == field_id]
-        setattr(thrift_obj, field_spec[0][2], value)
 
 def iterate_fields(thrift_obj):
     """ generatord for (field_id, value) pairs. """
@@ -53,13 +45,13 @@ class ReadValidationException(Exception):
         return "ReadValidationException: %s, json_path: %s" % (
             msg, self.json_path)
 
-class ReadContext(object):
+class JSONContext(object):
 
-    def __init__(self, root_spec, parsed_json):
-        self.context_stack = [] # holds a list of (spec, jq_path, object) tuples
-        self.root_spec = root_spec
+    def __init__(self, definition, parsed_json):
+        self.context_stack = [] # holds a list of (definition, jq_path, object) tuples
+        self.definition = definition
         self.parsed_json = parsed_json
-        self.push_context(root_spec, "", parsed_json)
+        self.push_context(definition, "", parsed_json)
 
     def push_context(self, spec, key, obj):
         if len(self.context_stack) > 0:
@@ -69,33 +61,39 @@ class ReadContext(object):
         self.context_stack.append((spec, current[1] + [key], obj))
 
     def pop_context(self):
-        self.context_stack.pop()
-
-    def _ensure_context_initialized(self):
-        self.context_stack.append((spec, ["."], self.parsed_json))
-
-    def current_spec(self):
-        return self.context_stack[-1][0]
+        return self.context_stack.pop()
 
     def current_path(self):
         return ".".join(self.context_stack[-1][1])
 
-    def current_object(self):
+    def current_json_object(self):
         return self.context_stack[-1][2]
 
 
 class JSONSerializer(Serializer):
 
-    def __init__(self, skip_unknown_fields=True, **kwargs):
+    def __init__(self,
+            skip_unknown_fields=True,
+            **kwargs):
         super(JSONSerializer, self).__init__(**kwargs)
         self.skip_unknown_fields = skip_unknown_fields
         self.read_context = None
 
     def serialize(self, obj):
-        raise NotImplemented()
+        if self.validate_before_write:
+            obj.validate()
+        output = self.writeStruct(obj)
+        return json.dumps(output)
+
+    def writeStruct(self, obj):
+        output = {}
+        return output
+
 
     def deserialize(self, struct_class, stream):
-        self.read_context = ReadContext(json.loads(stream))
+        self.read_context = JSONContext(struct_class, json.loads(stream))
+        obj = self.model_registry.lookup(struct_class)()
+        self.readStruct(obj)
 
     def readFieldStruct(self, key, spec, raw_value):
         cls, type_parameters = spec
@@ -125,7 +123,7 @@ class JSONSerializer(Serializer):
 
     def validation_assert(self, condition, message=""):
         if not condition:
-            raise ReadValidationException(message, self.read_context, data=self.read_context.current_object())
+            raise ReadValidationException(message, self.read_context, data=self.read_context.current_json_object())
 
     def readMessageEnd(self):
         self.readJSONArrayEnd()
@@ -146,7 +144,7 @@ class JSONSerializer(Serializer):
                 read_value = self.readField(spec[2], spec[1], spec[3], json_obj)
                 # TODO: maybe check if the read_field is empty (this could be an
                 # indication that the read failed even if no exception was raised.
-                set_field_value(target_obj, field_id, read_value)
+                thrift_obj._set_value_by_thrift_field_id(field_id, value)
                 return target_obj
             except ReadValidationException, e:
                 failed_field_reads[spec[2]] = str(e)
@@ -156,11 +154,8 @@ class JSONSerializer(Serializer):
                 read_context=self.read_context,
                 data=failed_field_reads)
 
-
-    def readStruct(self, target_obj, thrift_spec):
-        if self.read_context is None:
-           self.parse_json(thrift_spec)
-        json_obj = self.read_context.current_object()
+    def readStruct(self, target_obj):
+        json_obj = self.read_context.current_json_object()
         if hasattr(target_obj, UNBOXED_UNION_ATTR):
             return self.readUnboxedUnion(target_obj, json_obj)
         # (un)known_fields contain thrift field names
@@ -168,14 +163,13 @@ class JSONSerializer(Serializer):
         known_fields = []
         unknown_fields = []
         for key, raw_value in json_obj.iteritems():
-            field_spec = [f for f in thrift_spec[1:] if f[2] == key]
-            if len(field_spec) == 0:
+            field = target_obj._fields_by_name.get(key, None)
+            if field is None:
                 unknown_fields.append(key)
                 continue
             known_fields.append(key)
-            field_id, field_type, thrift_field_name, type_parameters, default_value = field_spec[0]
-            parsed_value = self.readField(thrift_field_name, field_type, type_parameters, raw_value)
-            set_field_value(target_obj, field_id, parsed_value)
+            parsed_value = self.readField(field, raw_value)
+            thrift_obj._set_value_by_thrift_field_id(field_id, parsed_value)
         if not self.options['allow_unknown_fields']:
             self.validation_assert(len(unknown_fields) ==  0,
                 "unknown fields: %s" % ", ".join(unknown_fields))
@@ -247,6 +241,6 @@ class JSONSerializer(Serializer):
             if hasattr(value, UNBOXED_UNION_ATTR):
                 field_id, field_value = get_unboxed_union_field(value)
                 if field_value is None:
-                    set_field_value(obj, field_id, None)
+                    obj._set_value_by_thrift_field_id(field_id, None)
         else:
             TSimpleJSONProtocol.writeStruct(self, obj, thrift_spec)

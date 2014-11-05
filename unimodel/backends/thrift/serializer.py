@@ -2,7 +2,7 @@ from thrift.protocol import TBinaryProtocol, TCompactProtocol, TJSONProtocol
 from thrift.transport import TTransport
 from thrift.protocol.TBase import TBase
 from unimodel.backends.base import Serializer
-from unimodel.backends.thrift.data import TType
+from unimodel.backends.thrift.schema import TType
 
 class ThriftSpecFactory(object):
 

@@ -1,5 +1,5 @@
 from unimodel.validation import (ValidationException, ValueTypeException)
-from unimodel.backends.thrift.data import ThriftTypeData, TType
+from unimodel.backends.thrift.schema import ThriftTypeData, TType
 from unimodel.metadata import Metadata
 
 def instantiate_if_class(t):

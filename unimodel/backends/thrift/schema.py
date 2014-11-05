@@ -1,6 +1,8 @@
 # This file is for classes holding Thrift-specific data for types and fields.
+# Since this is imported form unimodel/types.py, it's important not to
+# import the whole apache thrift python lib from this file.
+# Instead the TType class is duplicated here.
 
-# Copied from the official Thrift distribution
 class TType:
   STOP   = 0
   VOID   = 1

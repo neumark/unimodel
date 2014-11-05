@@ -1,6 +1,6 @@
 from unittest import TestCase
 from thrift.Thrift import TType
-from unimodel.backends.thrift.serializer import ThriftSerializer, ThriftProtocol
+from unimodel.backends.json.serializer import JSONSerializer
 from test.helpers import flatten
 from unimodel.model import Unimodel, Field
 from unimodel.types import *
@@ -16,7 +16,7 @@ class StringTestCase(TestCase):
         test_string1 = unichr(40960)
         test_string2 = b"alma"
         data = ExampleClass(u=test_string1, s=test_string2)
-        serializer = ThriftSerializer()
+        serializer = JSONSerializer()
         s = serializer.serialize(data)
         json_data = json.loads(s)
         d = serializer.deserialize(TreeNode, s)
