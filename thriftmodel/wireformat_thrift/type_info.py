@@ -31,7 +31,7 @@ class ThriftSpecFactory(object):
         self.model_registry = model_registry
         if self.model_registry is None:
             from thriftmodel.model import ModelRegistry
-            self.model_registry = ModelRegistry
+            self.model_registry = ModelRegistry()
         self._spec_cache = {}
 
     def get_spec(self, struct_class):
