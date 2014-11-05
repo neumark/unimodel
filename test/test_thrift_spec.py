@@ -1,8 +1,8 @@
 from unittest import TestCase
 from thrift.Thrift import TType
-from thriftmodel.model import Unimodel, Field
-from thriftmodel import types
-from thriftmodel.wireformat_thrift.type_info import ThriftSpecFactory
+from unimodel.model import Unimodel, Field
+from unimodel import types
+from unimodel.wireformat_thrift.type_info import ThriftSpecFactory
 
 class ThriftSpecTestCase(TestCase):
     """
@@ -62,7 +62,7 @@ class ThriftSpecTestCase(TestCase):
             (-1, TType.MAP, None, [TType.I64, None, TType.STRING, None], None))
 
     def test_struct_field(self):
-        """ a thriftmodel's spec is part of a StructFields
+        """ a unimodel's spec is part of a StructFields
             spec (if the struct field has the model's type) """
         field = Field(types.Int)
         class F(Unimodel):

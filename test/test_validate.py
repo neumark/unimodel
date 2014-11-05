@@ -1,9 +1,9 @@
 from unittest import TestCase
 from thrift.Thrift import TType
-from thriftmodel.wireformat_thrift.serialization import ThriftProtocol
+from unimodel.wireformat_thrift.serialization import ThriftProtocol
 from test.helpers import flatten
-from thriftmodel.model import Unimodel, Field
-from thriftmodel.types import *
+from unimodel.model import Unimodel, Field
+from unimodel.types import *
 
 class ValidationTestClass(Unimodel):
     important_string = Field(UTF8, required=True)

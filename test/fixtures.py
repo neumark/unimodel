@@ -1,5 +1,5 @@
-from thriftmodel.model import Unimodel, Field, FieldFactory
-from thriftmodel import types
+from unimodel.model import Unimodel, Field, FieldFactory
+from unimodel import types
 
 
 class NodeData(Unimodel):

@@ -1,5 +1,5 @@
-from thriftmodel.wireformat_thrift.type_info import ThriftTypeInfo, TType
-from thriftmodel.validation import (ValidationException,
+from unimodel.wireformat_thrift.type_info import ThriftTypeInfo, TType
+from unimodel.validation import (ValidationException,
     ValueTypeException)
 
 def instantiate_if_class(t):

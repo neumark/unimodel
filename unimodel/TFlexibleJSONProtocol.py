@@ -5,7 +5,7 @@ import json
 import math
 import traceback
 from StringIO import StringIO
-from thriftmodel.util import replace_tuple_element
+from unimodel.util import replace_tuple_element
 
 __all__ = ['TFlexibleJSONProtocol',
            'TFlexibleJSONProtocolFactory']

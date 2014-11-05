@@ -1,7 +1,7 @@
 from unittest import TestCase
 from test.fixtures import NodeData, TreeNode, data
 from test.helpers import flatten
-from thriftmodel.wireformat_thrift.serialization import ThriftSerializer, ThriftProtocol
+from unimodel.wireformat_thrift.serialization import ThriftSerializer, ThriftProtocol
 
 class ProtocolTestCase(TestCase):
 

@@ -1,5 +1,5 @@
-from thriftmodel.protocol import Protocol
-from thriftmodel.model import ThriftModel, ThriftField, StringField
+from unimodel.protocol import Protocol
+from unimodel.model import ThriftModel, ThriftField, StringField
 
 class DynamicClassNotFoundException(Exception):
     pass

@@ -1,8 +1,8 @@
 from unittest import TestCase
 from thrift.Thrift import TType
-from thriftmodel.model import Unimodel, Field
-from thriftmodel import types
-from thriftmodel.wireformat_thrift.type_info import ThriftSpecFactory
+from unimodel.model import Unimodel, Field
+from unimodel import types
+from unimodel.wireformat_thrift.type_info import ThriftSpecFactory
 
 FIELD_NAME1 = 'long-hypenated-name'
 FIELD_NAME2 = 'a:""f'
