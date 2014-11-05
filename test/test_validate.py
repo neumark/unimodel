@@ -1,8 +1,9 @@
 from unittest import TestCase
 from thrift.Thrift import TType
-from unimodel.wireformat_thrift.serialization import ThriftProtocol
+from unimodel.backends.thrift.serializer import ThriftProtocol
 from test.helpers import flatten
 from unimodel.model import Unimodel, Field
+from unimodel.metadata import Metadata
 from unimodel.types import *
 
 class ValidationTestClass(Unimodel):
@@ -32,7 +33,7 @@ class ValidationTestCase(TestCase):
                     raise ValidationException("%s is not odd" % value)
 
         class G(Unimodel):
-            f = Field(Int(validators=[EvenValidator()]))
+            f = Field(Int(metadata=Metadata(validators=[EvenValidator()])))
 
         obj = G(f=1)
         self.assertRaises(ValidationException, lambda: obj.validate())
@@ -48,7 +49,7 @@ class ValidationTestCase(TestCase):
 
         class G(Unimodel):
             f = Field(Int)
-            validators=[EvenValidator()]
+            metadata=Metadata(validators=[EvenValidator()])
 
         obj = G(f=1)
         self.assertRaises(ValidationException, lambda: obj.validate())
@@ -68,10 +69,10 @@ class ValidationTestCase(TestCase):
                     raise ValidationException("list should have 4 elements")
 
         class G(Unimodel):
-            f = Field(List(Int(validators=[ElementValidator()])))
+            f = Field(List(Int(metadata=Metadata(validators=[ElementValidator()]))))
  
         class F(Unimodel):
-            f = Field(List(Int, validators=[ListValidator()]))
+            f = Field(List(Int, metadata=Metadata(validators=[ListValidator()])))
  
         obj = G(f=[0,1])
         self.assertRaises(ValidationException, lambda: obj.validate())
@@ -96,8 +97,8 @@ class ValidationTestCase(TestCase):
         class F(Unimodel):
             f = Field(
                     Map(
-                        Int(validators=[KeyValidator()]),
-                        List(UTF8, validators=[ValueValidator()])))
+                        Int(metadata=Metadata(validators=[KeyValidator()])),
+                        List(UTF8, metadata=Metadata(validators=[ValueValidator()]))))
         # both key and value is OK
         F(f={2:["a", "b", "c", "d"]}).validate()
         # validation of key fails
@@ -120,7 +121,7 @@ class ValidationTestCase(TestCase):
                                     UTF8(),
                                     List(
                                         List(
-                                            Int(validators=[EvenValidator()]))))))))
+                                            Int(metadata=Metadata(validators=[EvenValidator()])))))))))
 
         # both key and value is OK
         F(f=[[[{"a":[[2]]}]]]).validate()

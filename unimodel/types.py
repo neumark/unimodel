@@ -1,6 +1,6 @@
-from unimodel.wireformat_thrift.type_info import ThriftTypeInfo, TType
-from unimodel.validation import (ValidationException,
-    ValueTypeException)
+from unimodel.validation import (ValidationException, ValueTypeException)
+from unimodel.backends.thrift.data import ThriftTypeData, TType
+from unimodel.metadata import Metadata
 
 def instantiate_if_class(t):
     # If they left off the parenthesis (eg: Field(Int)),
@@ -10,15 +10,14 @@ def instantiate_if_class(t):
     return t
 
 class FieldType(object):
-    def __init__(self, python_type, type_parameters=None, validators=None):
+    def __init__(self, python_type, type_parameters=None, metadata=None):
         self.python_type = python_type
-        self.extra_type_info = {}
         if type_parameters:
             type_parameters_fixed = [instantiate_if_class(t) for t in type_parameters]
             self.type_parameters = type_parameters_fixed
         else:
             self.type_parameters = []
-        self.validators = validators
+        self.metadata = metadata
 
     def validate(self, value):
         # check type of value
@@ -29,20 +28,21 @@ class FieldType(object):
                 str(value))
             raise ValueTypeException(msg)
         # run custom validators (if any)
-        if self.validators:
-            for validator in self.validators:
+        if self.metadata.validators:
+            for validator in self.metadata.validators:
                 validator.validate(value)
 
 class BasicType(FieldType):
     """Descendant classes must define thrift_type_id and python_type."""
-    def __init__(self, validators=None, extra_type_info_kwargs=None):
-        extra_type_info_kwargs = extra_type_info_kwargs or {}
-        thrift_type_info = ThriftTypeInfo(self, self.thrift_type_id, **(extra_type_info_kwargs.get('thrift', {})))
-        super(BasicType, self).__init__(
-                self.python_type,
-                validators=validators)
-        self.extra_type_info['thrift'] = thrift_type_info
-
+    def __init__(self, *args, **kwargs):
+        super(BasicType, self).__init__(self.python_type, *args, **kwargs)
+        # This way metadata can be passed to the constructor of the type, but
+        # if not, it's created here.
+        self.metadata = self.metadata or Metadata()
+        # Note: self.metadata.backend_data['thrift'] should be a ThriftTypeData object
+        if 'thrift' not in self.metadata.backend_data:
+            self.metadata.backend_data['thrift'] = ThriftTypeData()
+        self.metadata.backend_data['thrift'].type_id = self.thrift_type_id
 
 class CollectionType(BasicType):
 
@@ -88,7 +88,7 @@ class Binary(UTF8):
     thrift_type_id = TType.STRING
     def __init__(self, *args, **kwargs):
         super(Binary, self).__init__(*args, **kwargs)
-        self.extra_type_info['thrift'].is_binary = True
+        self.metadata.backend_data['thrift'].is_binary = True
 
 class Struct(BasicType):
     thrift_type_id = TType.STRUCT
@@ -99,7 +99,7 @@ class Struct(BasicType):
 class Union(Struct):
     def __init__(self, *args, **kwargs):
         super(Union, self).__init__(*args, **kwargs)
-        self.extra_type_info['thrift'].is_union = True
+        self.metadata.backend_data['thrift'].is_union = True
 
 class List(CollectionType):
     thrift_type_id = TType.LIST

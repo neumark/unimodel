@@ -2,12 +2,58 @@ from thrift.protocol import TBinaryProtocol, TCompactProtocol, TJSONProtocol
 from thrift.transport import TTransport
 from thrift.protocol.TBase import TBase
 from unimodel.model import ModelRegistry
-from unimodel.wireformat_thrift.type_info import ThriftSpecFactory
+from unimodel.backends.base import Serializer
+from unimodel.backends.thrift.data import TType
 
-try:
-  from thrift.protocol import fastbinary
-except:
-  fastbinary = None
+class ThriftSpecFactory(object):
+
+    def __init__(self, model_registry=None):
+        self.model_registry = model_registry
+        if self.model_registry is None:
+            from unimodel.model import ModelRegistry
+            self.model_registry = ModelRegistry()
+        self._spec_cache = {}
+
+    def get_spec(self, struct_class):
+        if struct_class not in self._spec_cache:
+            self._spec_cache[struct_class] = self.get_spec_for_struct(struct_class)
+        return self._spec_cache[struct_class]
+
+    def get_spec_for_struct(self, struct_class):
+        field_list = sorted(struct_class._fields_by_name.values(), key=lambda x: x.field_id)
+        thrift_spec = [None]
+        # save the spec to cache so recurisve data structures work.
+        self._spec_cache[struct_class] = thrift_spec
+        for f in field_list:
+            thrift_spec.append(self.get_spec_for_field(f))
+        return thrift_spec
+
+    def get_spec_type_parameter(self, field_type):
+        """ Returns value 3 of the element in thrift_spec which defines this field. """
+        # structs are a special case
+        if field_type.metadata.backend_data['thrift'].type_id == TType.STRUCT:
+            interface_class = field_type.python_type
+            implementation_class = self.model_registry.lookup(interface_class)
+            return (implementation_class, self.get_spec(implementation_class))
+        # If there are no type parameters, return None
+        if not field_type.type_parameters:
+            return None
+        # lists, sets, maps
+        spec_list = []
+        for t in field_type.type_parameters:
+            # for each type_parameter, first add the type's id
+            spec_list.append(t.metadata.backend_data['thrift'].type_id)
+            # then the type's parameters
+            spec_list.append(self.get_spec_type_parameter(t))
+        return spec_list
+
+    def get_spec_for_field(self, field):
+        return (
+            field.field_id,
+            field.field_type.metadata.backend_data['thrift'].type_id,
+            field.field_name,
+            self.get_spec_type_parameter(field.field_type),
+            field.default,)
 
 class ThriftProtocol(object):
 
@@ -44,7 +90,7 @@ class ThriftProtocol(object):
 
 default_protocol_factory=ThriftProtocol('binary').factory
 
-class ThriftSerializer(object):
+class ThriftSerializer(Serializer):
 
     def __init__(self,
             protocol_factory=default_protocol_factory,

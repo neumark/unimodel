@@ -1,6 +1,6 @@
 from unittest import TestCase
 from thrift.Thrift import TType
-from unimodel.wireformat_thrift.serialization import ThriftSerializer, ThriftProtocol
+from unimodel.backends.thrift.serializer import ThriftSerializer, ThriftProtocol
 from test.helpers import flatten
 from unimodel.model import Unimodel, Field
 from unimodel.types import *

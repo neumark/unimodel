@@ -2,7 +2,7 @@ from unittest import TestCase
 from thrift.Thrift import TType
 from unimodel.model import Unimodel, Field
 from unimodel import types
-from unimodel.wireformat_thrift.type_info import ThriftSpecFactory
+from unimodel.backends.thrift.serializer import ThriftSpecFactory
 
 class ThriftSpecTestCase(TestCase):
     """
@@ -49,7 +49,7 @@ class ThriftSpecTestCase(TestCase):
             field_id=FIELD_ID,
             default=DEFAULT)
         self.assertEquals(self.get_field_spec(field), 
-                (FIELD_ID, FIELD_TYPE.extra_type_info['thrift'].type_id, FIELD_NAME, None, DEFAULT))
+                (FIELD_ID, FIELD_TYPE.metadata.backend_data['thrift'].type_id, FIELD_NAME, None, DEFAULT))
 
     def test_list_field(self):
         field = Field(types.List(types.Int))

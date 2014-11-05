@@ -2,8 +2,7 @@ from unittest import TestCase
 from thrift.Thrift import TType
 from unimodel.model import Unimodel, Field
 from unimodel import types
-from unimodel.wireformat_thrift.type_info import ThriftSpecFactory
-from unimodel.wireformat_thrift.serialization import ThriftSerializer, ThriftProtocol
+from unimodel.backends.thrift.serializer import ThriftSerializer, ThriftProtocol, ThriftSpecFactory
 from test.fixtures import NodeData, TreeNode, data
 
 

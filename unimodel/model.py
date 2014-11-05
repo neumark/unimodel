@@ -6,7 +6,7 @@ from functools import wraps
 from thrift.Thrift import TType, TMessageType, TException, TApplicationException
 from thrift.protocol.TBase import TBase, TExceptionBase
 from thrift.transport import TTransport
-
+from unimodel.metadata import Metadata
 class FieldFactory(object):
 
     def field_dict_to_field_list(self, field_dict):
@@ -64,8 +64,8 @@ class Field(object):
             field_name=None,
             field_id=-1,
             default=None,
-            required=None,
-            annotations=None):
+            required=False,
+            metadata=None):
         self.creation_count = Field._field_creation_counter
         Field._field_creation_counter += 1
         # If they left off the parenthesis, fix it.
@@ -77,7 +77,7 @@ class Field(object):
         self.field_name = field_name
         self.default = default
         self.required = required
-        self.annotations = annotations
+        self.metadata = metadata or Metadata()
 
     def validate(self, value):
         # first, validate the type of the value
@@ -180,8 +180,8 @@ class Unimodel(object):
             # Run any field validators
             v.field_type.validate(self._model_data.get(v.field_id, None))
         # Run the validator for the model itself (if it is set)
-        if hasattr(self, 'validators'):
-            for validator in (self.validators or []):
+        if hasattr(self, 'metadata') and hasattr(self.metadata, 'validators'):
+            for validator in (self.metadata.validators or []):
                 validator.validate(self)
 
 class ModelRegistry(object):
