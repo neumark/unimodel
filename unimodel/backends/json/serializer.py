@@ -1,36 +1,8 @@
-from thrift.protocol.TProtocol import TType, TProtocolBase, TProtocolException
-from thrift.protocol.TJSONProtocol import TSimpleJSONProtocol
 import base64
 import json
-import math
 import traceback
 from StringIO import StringIO
-from unimodel.util import replace_tuple_element
-
-__all__ = ['TFlexibleJSONProtocol',
-           'TFlexibleJSONProtocolFactory']
-
-DEFAULT_OPTIONS = {
-    'base64_encode_string': True,
-    'allow_unknown_fields': True}
-
-VERSION = 1
-
-UNBOXED_UNION_ATTR = "is_unboxed_union"
-
-NUMBER_TYPES = [
-    TType.BYTE,
-    TType.I08,
-    TType.DOUBLE,
-    TType.I16,
-    TType.I32,
-    TType.I64]
-
-STRING_TYPES = [
-    TType.STRING,
-    TType.UTF7,
-    TType.UTF8,
-    TType.UTF16]
+from unimodel.backends.base import Serializer
 
 def set_field_value(thrift_obj, field_id, value):
     if hasattr(thrift_obj, "_set_value_by_thrift_field_id"):
@@ -112,23 +84,18 @@ class ReadContext(object):
         return self.context_stack[-1][2]
 
 
-class TFlexibleJSONProtocol(TSimpleJSONProtocol):
-    def __init__(self, trans):
-        TSimpleJSONProtocol.__init__(self, trans)
-        self.options = dict(DEFAULT_OPTIONS)
+class JSONSerializer(Serializer):
+
+    def __init__(self, skip_unknown_fields=True, **kwargs):
+        super(JSONSerializer, self).__init__(**kwargs)
+        self.skip_unknown_fields = skip_unknown_fields
         self.read_context = None
-        self.CONTAINER_CONSTRUCTORS = {
-            TType.STRUCT: self.readFieldStruct,
-            TType.MAP: self.readFieldMap,
-            TType.SET: self.readFieldSet,
-            TType.LIST: self.readFieldList}
-        self._TTYPE_HANDLERS = replace_tuple_element(self._TTYPE_HANDLERS,
-            TType.UTF8,
-            (None, 'writeUTF8String', False))
 
+    def serialize(self, obj):
+        raise NotImplemented()
 
-    def set_options(self, options_dict):
-        self.options.update(options_dict)
+    def deserialize(self, struct_class, stream):
+        self.read_context = ReadContext(json.loads(stream))
 
     def readFieldStruct(self, key, spec, raw_value):
         cls, type_parameters = spec
@@ -155,27 +122,6 @@ class TFlexibleJSONProtocol(TSimpleJSONProtocol):
         # TODO: validate type parameter!
         result = [self.readField(str(ix), spec[0], spec[1], raw_value[ix]) for ix in xrange(0, len(raw_value))]
         return result
-
-    def parse_json(self, spec):
-        json_str = StringIO()
-        try:
-            while True:
-                json_str.write(self.trans.readAll(1))
-        except EOFError:
-            pass
-        json_str.seek(0)
-        self.read_context = ReadContext(spec, json.loads(json_str.getvalue()))
-
-    def readMessageBegin(self):
-        self.resetReadContext()
-        self.readJSONArrayStart()
-        if self.readJSONInteger() != VERSION:
-          raise TProtocolException(TProtocolException.BAD_VERSION,
-                                   "Message contained bad version.")
-        name = self.readJSONString(False)
-        typen = self.readJSONInteger()
-        seqid = self.readJSONInteger()
-        return (name, typen, seqid)
 
     def validation_assert(self, condition, message=""):
         if not condition:
@@ -283,10 +229,6 @@ class TFlexibleJSONProtocol(TSimpleJSONProtocol):
             val = base64.b64encode(val)
         TSimpleJSONProtocol.writeString(self, val)
 
-    def writeUTF8String(self, val):
-        self.context.write()
-        self.trans.write(json.dumps(val))
-
     def writeStruct(self, obj, thrift_spec):
         # If obj is an UnboxedUnion type, write the active field if it is set.
         if hasattr(obj, UNBOXED_UNION_ATTR):
@@ -308,9 +250,3 @@ class TFlexibleJSONProtocol(TSimpleJSONProtocol):
                     set_field_value(obj, field_id, None)
         else:
             TSimpleJSONProtocol.writeStruct(self, obj, thrift_spec)
-    
- 
-class TFlexibleJSONProtocolFactory(object):
-
-    def getProtocol(self, trans):
-        return TFlexibleJSONProtocol(trans)

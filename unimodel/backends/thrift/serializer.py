@@ -1,7 +1,6 @@
 from thrift.protocol import TBinaryProtocol, TCompactProtocol, TJSONProtocol
 from thrift.transport import TTransport
 from thrift.protocol.TBase import TBase
-from unimodel.model import ModelRegistry
 from unimodel.backends.base import Serializer
 from unimodel.backends.thrift.data import TType
 
@@ -92,11 +91,12 @@ default_protocol_factory=ThriftProtocol('binary').factory
 
 class ThriftSerializer(Serializer):
 
-    def __init__(self,
+    def __init__(
+            self,
             protocol_factory=default_protocol_factory,
-            model_registry=None):
+            **kwargs):
+        super(ThriftSerializer, self).__init__(**kwargs)
         self.protocol_factory = protocol_factory
-        self.model_registry = model_registry or ModelRegistry()
         self.spec_factory = ThriftSpecFactory(self.model_registry)
 
     def serialize(self, obj):
