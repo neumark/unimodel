@@ -1,5 +1,4 @@
 from unittest import TestCase
-from thrift.Thrift import TType
 from unimodel.backends.json.serializer import JSONSerializer, JSONValidationException
 from test.helpers import flatten
 from test.fixtures import TreeNode, data

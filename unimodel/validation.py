@@ -1,5 +1,5 @@
 
-# Ingenious pyhton 2/3 ugliness from http://stackoverflow.com/a/11301781
+# Ingenious python 2/3 ugliness from http://stackoverflow.com/a/11301781
 try:
     basestring  # attempt to evaluate basestring
     def is_str(s):
@@ -13,4 +13,3 @@ class ValidationException(Exception):
 
 class ValueTypeException(ValidationException):
     pass
-

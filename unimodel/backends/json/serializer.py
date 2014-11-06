@@ -18,7 +18,7 @@ class JSONValidationException(ValidationException):
 
     def __str__(self):
         msg = Exception.__str__(self)
-        return "ReadValidationException: %s, context: %s exc: %s" % (
+        return "%s, context: %s exc: %s" % (
             msg, str(self.context), str(self.exc))
 
 class Context(object):
@@ -168,7 +168,7 @@ class JSONSerializer(Serializer):
         try:
             target_obj.validate()
         except Exception, e:
-            raise ReadValidationException("Error validating %s" % struct_class.__name__, self.context, e)
+            raise JSONValidationException("Error validating %s: %s" % (struct_class.__name__, str(e)), self.context, e)
         return target_obj
 
     def readField(self, type_definition, value):

@@ -1,4 +1,5 @@
 from unimodel.model import ModelRegistry
+import datetime
 
 class Serializer(object):
 
@@ -14,3 +15,21 @@ class Serializer(object):
 
     def deserialize(self, cls, stream):
         raise NotImplementedError()
+
+class SchemaWriter(object):
+
+    def __init__(
+            self,
+            name=None,
+            description=None,
+            struct_classes=None):
+        self.name = name or "untitled"
+        self.description = description or "generated %s" % str(datetime.datetime.now)
+        self.struct_classes = struct_classes or set()
+
+    def get_schema_ast(self):
+        raise NotImplementedError()
+
+    def get_schema_text(self):
+        raise NotImplementedError()
+

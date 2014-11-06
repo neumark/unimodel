@@ -1,5 +1,6 @@
 from unimodel.validation import (ValidationException, ValueTypeException)
-from unimodel.backends.thrift.schema import ThriftTypeData, TType
+from unimodel.backends.thrift.type_data import ThriftTypeData, TType
+from unimodel.backends.json.type_data import JSONTypeData
 from unimodel.metadata import Metadata
 from unimodel.validation import is_str
 
@@ -36,7 +37,7 @@ class FieldType(object):
 
     def validate(self, value):
         # check type of value
-        if type(value) != self.python_type:
+        if not issubclass(type(value), self.python_type):
             str_value = "<nonprintable value>"
             try:
                 str_value = str(value)
@@ -61,6 +62,9 @@ class BasicType(FieldType):
         if 'thrift' not in self.metadata.backend_data:
             self.metadata.backend_data['thrift'] = ThriftTypeData()
         self.metadata.backend_data['thrift'].type_id = self.thrift_type_id
+        if 'json' not in self.metadata.backend_data:
+            self.metadata.backend_data['json'] = JSONTypeData()
+        self.metadata.backend_data['json'].type_name = self.json_type
 
 class CollectionType(BasicType):
 
@@ -87,18 +91,22 @@ class CollectionType(BasicType):
 class Int(BasicType, NumberType):
     python_type = int
     thrift_type_id = TType.I64
+    json_type = "number"
 
 class Double(BasicType, NumberType):
     python_type = float
     thrift_type_id = TType.DOUBLE
+    json_type = "number"
 
 class Bool(BasicType):
     python_type = bool
     thrift_type_id = TType.BOOL
+    json_type = "boolean"
 
 class UTF8(BasicType, StringType):
     python_type = str
     thrift_type_id = TType.STRING
+    json_type = "string"
 
     def validate(self, value):
         # check type of value
@@ -117,12 +125,16 @@ class UTF8(BasicType, StringType):
 class Binary(UTF8, StringType):
     python_type = str
     thrift_type_id = TType.STRING
+    json_type = "string"
+
     def __init__(self, *args, **kwargs):
         super(Binary, self).__init__(*args, **kwargs)
         self.metadata.backend_data['thrift'].is_binary = True
 
 class Struct(BasicType):
     thrift_type_id = TType.STRUCT
+    json_type = "object"
+
     def __init__(self, struct_class, *args, **kwargs):
         self.python_type = struct_class
         super(Struct, self).__init__(*args, **kwargs)
@@ -135,6 +147,7 @@ class Union(Struct):
 class List(CollectionType):
     thrift_type_id = TType.LIST
     python_type = list
+    json_type = "array"
 
     def __init__(self, element_type, *args, **kwargs):
         super(List, self).__init__(*args, **kwargs)
@@ -146,6 +159,7 @@ class Set(List):
 class Map(CollectionType):
     thrift_type_id = TType.MAP
     python_type = dict
+    json_type = "object"
 
     def __init__(self, key_type, value_type, *args, **kwargs):
         super(Map, self).__init__(*args, **kwargs)
