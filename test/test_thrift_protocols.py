@@ -3,9 +3,9 @@ from test.fixtures import NodeData, TreeNode, data
 from test.helpers import flatten
 from unimodel.backends.thrift.serializer import ThriftSerializer, ThriftProtocol
 
-class ProtocolTestCase(TestCase):
+class ThriftProtocolTestCase(TestCase):
 
-    def test_serialize(self):
+    def test_thrift_serialize(self):
         pre_flattened = flatten(data)
         for protocol_name, protocol_factory in ThriftProtocol.iter():
             serializer = ThriftSerializer(protocol_factory=protocol_factory)

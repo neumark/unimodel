@@ -10,6 +10,14 @@ def instantiate_if_class(t):
         return t()
     return t
 
+# Marker classes for types
+
+class NumberType(object):
+    pass
+
+class StringType(object):
+    pass
+
 class FieldType(object):
     def __init__(self, python_type, type_parameters=None, metadata=None):
         self.python_type = python_type
@@ -76,11 +84,11 @@ class CollectionType(BasicType):
         self.validate_elements(collection, self.type_parameters[0])
 
 
-class Int(BasicType):
+class Int(BasicType, NumberType):
     python_type = int
     thrift_type_id = TType.I64
 
-class Double(BasicType):
+class Double(BasicType, NumberType):
     python_type = float
     thrift_type_id = TType.DOUBLE
 
@@ -88,7 +96,7 @@ class Bool(BasicType):
     python_type = bool
     thrift_type_id = TType.BOOL
 
-class UTF8(BasicType):
+class UTF8(BasicType, StringType):
     python_type = str
     thrift_type_id = TType.STRING
 
@@ -106,7 +114,7 @@ class UTF8(BasicType):
             raise ValueTypeException(msg)
         self.run_custom_validators(value)
 
-class Binary(UTF8):
+class Binary(UTF8, StringType):
     python_type = str
     thrift_type_id = TType.STRING
     def __init__(self, *args, **kwargs):

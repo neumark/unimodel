@@ -3,9 +3,6 @@ import types
 import itertools
 import inspect
 from functools import wraps
-from thrift.Thrift import TType, TMessageType, TException, TApplicationException
-from thrift.protocol.TBase import TBase, TExceptionBase
-from thrift.transport import TTransport
 from unimodel.metadata import Metadata
 class FieldFactory(object):
 
@@ -20,8 +17,8 @@ class FieldFactory(object):
         return field_list
 
     def add_fields(self, cls, fields=None):
-        thrift_spec_attr = self.get_field_definition(cls, fields)
-        for attr_name, attr_value in thrift_spec_attr.items():
+        attrs = self.get_field_definition(cls, fields)
+        for attr_name, attr_value in attrs.items():
             if attr_value:  # do not set empty values
                 setattr(cls, attr_name, attr_value)
 
@@ -49,9 +46,6 @@ class FieldFactory(object):
         """
         fields = self.field_dict_to_field_list(field_dict or {})
         self.replace_default_field_ids(fields)
-        # thrift_spec can be a list or a tuple
-        # we only need to set it here in the latter case
-        # because a list thrift_spec is already an attr of cls.
         attr_dict = {
             '_fields_by_id': dict([(field.field_id, field) for field in fields]),
             '_fields_by_name': dict([(field.field_name, field) for field in fields])}
@@ -120,7 +114,10 @@ class Unimodel(object):
         return self._fields_by_name.keys()
 
     def _field_name_to_field_id(self, field_name):
-        return self._fields_by_name[field_name].field_id
+        return self.get_field_definition(field_name).field_id
+
+    def get_field_definition(self, field_name):
+        return self._fields_by_name[field_name]
 
     def __getitem__(self, field_name):
         return self._model_data.get(self._field_name_to_field_id(field_name), None)
@@ -165,19 +162,21 @@ class Unimodel(object):
     def __ne__(self, other):
         return not (self == other)
 
-    def _set_value_by_thrift_field_id(self, field_id, value):
+    def _set_value_by_field_id(self, field_id, value):
         self._model_data[field_id] = value
 
-    def _get_value_by_thrift_field_id(self, field_id):
+    def _get_value_by_field_id(self, field_id):
         return self._model_data.get(field_id, None)
 
     def validate(self):
         # check to make sure required fields are set
         for k, v in self._fields_by_name.iteritems():
-            if v.required and self._model_data.get(v.field_id, None) is None:
-                raise ValidationException("Required field %s (id %s) not set" % (k, v.field_id))
-            # Run any field validators
-            v.field_type.validate(self._model_data.get(v.field_id, None))
+            if self._model_data.get(v.field_id, None) is None:
+                if v.required:
+                    raise ValidationException("Required field %s (id %s) not set" % (k, v.field_id))
+            else:
+                # Run any field validators
+                v.field_type.validate(self._model_data.get(v.field_id, None))
         # Run the validator for the model itself (if it is set)
         if hasattr(self, 'metadata') and hasattr(self.metadata, 'validators'):
             for validator in (self.metadata.validators or []):
