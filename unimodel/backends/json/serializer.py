@@ -13,13 +13,13 @@ class JSONValidationException(ValidationException):
 
     def __init__(self, message, context=None, exc=None):
         Exception.__init__(self, message)
-        self.context = context
+        self.context = context.clone()
         self.exc = None
 
     def __str__(self):
         msg = Exception.__str__(self)
         return "ReadValidationException: %s, context: %s exc: %s" % (
-            msg, self.context, str(self.exc))
+            msg, str(self.context), str(self.exc))
 
 class Context(object):
 
@@ -28,7 +28,7 @@ class Context(object):
 
     def __str__(self):
         if self.context_stack:
-            return "JSON path: %s value: %s" % (self.current_path(), self.context_stack[-1][2])
+            return "JSON path: '%s' value: '%s'" % (self.current_path(), self.context_stack[-1][2])
 
     @contextmanager
     def context(self, key, type_definition, value):
@@ -40,8 +40,20 @@ class Context(object):
         def fmt(s):
             if type(s) == int:
                 return "[%s]" % s
-            return ".%s" % s
-        return ("".join([fmt(s[0]) for s in self.context_stack]))[1:]
+            if len(str(s)) > 0:
+                return ".%s" % s
+            return str(s)
+        return ("".join([fmt(s[0]) for s in self.context_stack if s]))[1:]
+
+    def current_value(self):
+        if self.context_stack:
+            return self.context_stack[-1][2]
+        return None
+
+    def clone(self):
+        new_context = Context()
+        new_context.context_stack = list(self.context_stack)
+        return new_context
 
 class JSONSerializer(Serializer):
 
@@ -56,8 +68,7 @@ class JSONSerializer(Serializer):
         if self.validate_before_write:
             obj.validate()
         with self.context.context("", obj.__class__, obj):
-            output = self.writeStruct(obj)
-        return json.dumps(output)
+            return json.dumps(self.writeStruct(obj))
 
     def writeStruct(self, obj):
         output = {}
@@ -118,7 +129,8 @@ class JSONSerializer(Serializer):
     def deserialize(self, struct_class, stream):
         parsed_json = json.loads(stream)
         cls = self.get_implementation_class(struct_class)
-        return self.readStruct(cls, parsed_json)
+        with self.context.context("", cls, parsed_json):
+            return self.readStruct(cls, parsed_json)
 
     def get_implementation_class(self, cls):
         return self.model_registry.lookup(cls)
@@ -149,9 +161,10 @@ class JSONSerializer(Serializer):
             with self.context.context(key, field.field_type, raw_value):
                 parsed_value = self.readField(field.field_type, raw_value)
                 target_obj._set_value_by_field_id(field.field_id, parsed_value)
-        if not self.skip_unknown_fields:
-            self.validation_assert(len(unknown_fields) ==  0,
-                "unknown fields: %s" % ", ".join(unknown_fields))
+        if not self.skip_unknown_fields and len(unknown_fields) > 0:
+            raise JSONValidationException(
+                "unknown fields: %s" % ", ".join(unknown_fields),
+                self.context)
         try:
             target_obj.validate()
         except Exception, e:

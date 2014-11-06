@@ -1,6 +1,6 @@
 from unittest import TestCase
 from thrift.Thrift import TType
-from unimodel.backends.json.serializer import JSONSerializer
+from unimodel.backends.json.serializer import JSONSerializer, JSONValidationException
 from test.helpers import flatten
 from test.fixtures import TreeNode, data
 from unimodel.model import Unimodel, Field
@@ -41,5 +41,30 @@ class JSONSerializerTestCase(TestCase):
             u = Field(List(Int))
         json_str = '{"u": ["a", "b", "c"]}'
         serializer = JSONSerializer()
-        d = serializer.deserialize(A, json_str)
+        exc = None
+        try:
+            d = serializer.deserialize(A, json_str)
+        except Exception, exc:
+            pass
+        self.assertTrue(exc is not None)
+        self.assertEquals(type(exc), JSONValidationException)
+        self.assertEquals(exc.context.current_path(), "u[0]")
+        self.assertEquals(exc.context.current_value(), "a")
 
+    def test_unknown_fields(self):
+        class A(Unimodel):
+            u = Field(List(UTF8))
+        json_str = '{"u": ["a", "b", "c"], "x": 1}'
+        serializer = JSONSerializer()
+        # by default, unknown fields are skipped
+        d = serializer.deserialize(A, json_str)
+        exc = None
+        try:
+            serializer = JSONSerializer(skip_unknown_fields=False)
+            d = serializer.deserialize(A, json_str)
+        except Exception, exc:
+            pass
+        self.assertTrue(exc is not None)
+        self.assertEquals(type(exc), JSONValidationException)
+        self.assertEquals(exc.context.current_path(), "")
+        self.assertTrue("unknown fields" in str(exc))

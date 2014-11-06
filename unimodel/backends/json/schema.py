@@ -8,3 +8,6 @@ class JsonStructData(object):
             self,
             struct_type=StructType.DEFAULT):
         self.struct_type = struct_type
+
+class JSONSchemaWriter(object):
+    pass
