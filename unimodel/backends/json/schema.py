@@ -155,6 +155,8 @@ class JSONSchemaWriter(SchemaWriter):
 
     def get_type_definition(self, type_definition):
         """ returns field (name, definition) pair """
+        if isinstance(type_definition, types.Enum):
+            return self.define_enum_field(type_definition)
         if isinstance(type_definition, types.NumberType):
             return self.define_basic_field(type_definition)
         if isinstance(type_definition, types.StringType):
@@ -177,6 +179,10 @@ class JSONSchemaWriter(SchemaWriter):
         field_def['type'] = type_definition.metadata.backend_data['json'].type_name
         return field_def
 
+    def define_enum_field(self, type_definition):
+        field_def = {'enum': type_definition.names()}
+        return field_def
+
     def reference_type(self, type_definition):
         return { "$ref": "#/definitions/%s" % type_definition.python_type.get_name() }
 
@@ -190,6 +196,8 @@ class JSONSchemaWriter(SchemaWriter):
     def define_list(self, type_definition):
         field_def = copy.deepcopy(LIST_TEMPLATE)
         field_def['items'] = self.get_type_definition(type_definition.type_parameters[0])
+        if isinstance(type_definition, types.Set):
+            field_def['uniqueItems'] = True
         return field_def
 
     def get_dependencies_for_field_type(self, field_type, struct_dependencies):

@@ -128,6 +128,9 @@ class Enum(Int):
     def name_to_key(self, name):
         return self.names_to_keys[name]
 
+    def names(self):
+        return self.names_to_keys.keys()
+
     def key_to_name(self, key):
         return self.keys_to_names[key]
 
@@ -192,6 +195,7 @@ class List(CollectionType):
         self.type_parameters = [instantiate_if_class(element_type)]
 
 class Set(List):
+    python_type = set
     thrift_type_id = TType.SET
 
 class Map(CollectionType):

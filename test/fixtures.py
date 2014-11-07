@@ -27,7 +27,7 @@ class AllTypes(Unimodel):
     f_double = Field(types.Double)
     f_enum = Field(types.Enum({1: "one", 2: "two", 3: "three"}))
     f_list = Field(types.List(types.Int))
-    f_set = Field(types.List(types.Int))
+    f_set = Field(types.Set(types.Int))
     f_map = Field(types.Map(types.UTF8, types.Int))
 
 data = TreeNode(

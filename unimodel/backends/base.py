@@ -25,7 +25,7 @@ class SchemaWriter(object):
             struct_classes=None,
             model_registry=None):
         self.name = name or "untitled"
-        self.description = description or "generated %s" % str(datetime.datetime.now)
+        self.description = description or "generated %s" % str(datetime.datetime.now())
         self.struct_classes = struct_classes or set()
         self.model_registry = model_registry or ModelRegistry()
 
