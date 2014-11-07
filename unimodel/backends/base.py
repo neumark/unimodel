@@ -22,10 +22,15 @@ class SchemaWriter(object):
             self,
             name=None,
             description=None,
-            struct_classes=None):
+            struct_classes=None,
+            model_registry=None):
         self.name = name or "untitled"
         self.description = description or "generated %s" % str(datetime.datetime.now)
         self.struct_classes = struct_classes or set()
+        self.model_registry = model_registry or ModelRegistry()
+
+    def add_struct_class(self, struct_class):
+        self.struct_classes.add(struct_class)
 
     def get_schema_ast(self):
         raise NotImplementedError()

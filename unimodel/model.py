@@ -36,7 +36,7 @@ class FieldFactory(object):
                 taken_field_ids.add(next_field_id)
                 field.field_id = next_field_id
         return fields
- 
+
     def get_field_definition(self, cls, field_dict=None, bases=None):
         """ Returns a dictionary of attributes which will
             be set on the class by the metaclass. These
@@ -116,8 +116,13 @@ class Unimodel(object):
     def _field_name_to_field_id(self, field_name):
         return self.get_field_definition(field_name).field_id
 
-    def get_field_definition(self, field_name):
-        return self._fields_by_name[field_name]
+    @classmethod
+    def get_field_definition(cls, field_name):
+        return cls._fields_by_name[field_name]
+
+    @classmethod
+    def get_field_definitions(cls):
+        return cls._fields_by_name.values()
 
     def __getitem__(self, field_name):
         return self._model_data.get(self._field_name_to_field_id(field_name), None)
@@ -182,6 +187,11 @@ class Unimodel(object):
             for validator in (self.metadata.validators or []):
                 validator.validate(self)
 
+    @classmethod
+    def get_name(cls):
+        return cls.__name__
+
+
 class ModelRegistry(object):
 
     def __init__(self):
@@ -192,3 +202,9 @@ class ModelRegistry(object):
 
     def lookup(self, interface_class):
         return self.class_dict.get(interface_class, interface_class)
+
+    def lookup_interface(self, implementation_class):
+        for iface_candidate, impl_candidate in self.class_dict.items():
+            if issubclass(impl_candidate, implementation_class):
+                return iface_candidate
+        return implementation_class

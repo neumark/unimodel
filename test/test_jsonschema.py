@@ -13,5 +13,18 @@ class JSONSchemaTestCase(TestCase):
         class ExampleClass(Unimodel):
             u = Field(UTF8, required=True)
             s = Field(Binary)
+        
+        schema_writer = JSONSchemaWriter()
+        schema = schema_writer.get_schema_ast(ExampleClass)
+        self.assertTrue('u' in schema['properties'])
+        self.assertTrue('s' in schema['properties'])
 
-
+    def test_recursive_struct(self):
+        """ serialize unicode and binary data """
+        schema_writer = JSONSchemaWriter()
+        schema = schema_writer.get_schema_ast(TreeNode)
+        # make sure dependent type NodeData present
+        self.assertTrue('NodeData' in schema['definitions'])
+        # check type of treenode's children
+        self.assertEquals(schema['properties']['children']['type'], "array")
+        self.assertEquals(schema['properties']['children']['items'].keys(), ["$ref"])

@@ -49,7 +49,3 @@ class ModelRegistryTestCase(TestCase):
         # methods of impl classes can be called
         self.assertEquals(data_read.useful_method(), 6)
         self.assertEquals(data_read.nested.another_method(1), 7)
-
-
- 
-
