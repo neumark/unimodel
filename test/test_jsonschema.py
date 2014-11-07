@@ -37,6 +37,20 @@ class JSONSchemaTestCase(TestCase):
         self.assertEquals(schema['properties']['children']['type'], "array")
         self.assertEquals(schema['properties']['children']['items'].keys(), ["$ref"])
 
+    def test_recursive_struct(self):
+        """ serialize unicode and binary data """
+        from unimodel.backends.json.type_data import JSONFieldData
+
+        NAME = "/-/"
+        class A(Unimodel):
+            a = Field(Map(UTF8, Int), metadata=Metadata(backend_data={'json': JSONFieldData(property_name=NAME)}))
+
+        schema_writer = JSONSchemaWriter()
+        schema = schema_writer.get_schema_ast(A)
+        # make sure dependent type NodeData present
+        self.assertEquals(schema['properties'].keys(), [NAME])
+
+
     @skipIf(jsonschema is None, "json schema validation requires the jsonschema package")
     def test_validate_schema(self):
         # based on http://sacharya.com/validating-json-using-python-jsonschema/ 

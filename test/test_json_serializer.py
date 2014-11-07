@@ -1,5 +1,6 @@
 from unittest import TestCase
 from unimodel.backends.json.serializer import JSONSerializer, JSONValidationException
+from unimodel.backends.json.type_data import JSONFieldData
 from test.helpers import flatten
 from test.fixtures import TreeNode, data
 from unimodel.model import Unimodel, Field
@@ -113,3 +114,16 @@ class JSONSerializerTestCase(TestCase):
             print serializer.serialize(B(a={2.333: 1}))
         except Exception, exc:
             pass
+
+    def test_custom_field_names(self):
+        NAME = "/-/"
+        class A(Unimodel):
+            a = Field(Map(UTF8, Int), metadata=Metadata(backend_data={'json': JSONFieldData(property_name=NAME)}))
+
+        serializer = JSONSerializer()
+        data = A(a={"a":1})
+        s = serializer.serialize(data)
+        parsed_json = json.loads(s)
+        self.assertTrue(NAME in parsed_json)
+        self.assertEquals(data, serializer.deserialize(A, s))
+ 

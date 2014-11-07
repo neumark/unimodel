@@ -5,6 +5,7 @@ from unimodel.backends.base import Serializer
 from unimodel import types
 from contextlib import contextmanager
 from unimodel.validation import ValidationException, ValueTypeException
+from unimodel.backends.json.type_data import get_field_name, get_field_by_name
 
 class SerializationException(Exception):
     pass
@@ -74,9 +75,10 @@ class JSONSerializer(Serializer):
         output = {}
         for name, value in obj.items():
             if value is not None:
-                field_type = obj.get_field_definition(name).field_type
+                field = obj.get_field_definition(name)
+                field_type = field.field_type
                 with self.context.context(name, field_type, value):
-                    output[name] = self.writeField(field_type, value)
+                    output[get_field_name(field)] = self.writeField(field_type, value)
         return output
 
     def writeField(self, field_type, value):
@@ -166,7 +168,7 @@ class JSONSerializer(Serializer):
         known_fields = []
         unknown_fields = []
         for key, raw_value in json_obj.iteritems():
-            field = target_obj._fields_by_name.get(key, None)
+            field = get_field_by_name(target_obj, key)
             if field is None:
                 unknown_fields.append(key)
                 continue

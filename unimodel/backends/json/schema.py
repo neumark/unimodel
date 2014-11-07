@@ -2,6 +2,7 @@ from unimodel.backends.base import SchemaWriter
 import copy
 import json
 from unimodel import types
+from unimodel.backends.json.type_data import get_field_name
 
 """ 
 Useful: http://www.jsonschema.net/
@@ -146,9 +147,10 @@ class JSONSchemaWriter(SchemaWriter):
         if struct_class.get_field_definitions():
             required = []
             for field in struct_class.get_field_definitions():
-                struct_def['properties'][field.field_name] = self.get_type_definition(field.field_type)
+                field_name = get_field_name(field)
+                struct_def['properties'][field_name] = self.get_type_definition(field.field_type)
                 if field.required:
-                    required.append(field.field_name)
+                    required.append(field_name)
             struct_def['required'] = required
         if 'required' in struct_def and not struct_def['required']:
             del struct_def['required']
