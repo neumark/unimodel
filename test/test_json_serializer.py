@@ -127,3 +127,21 @@ class JSONSerializerTestCase(TestCase):
         self.assertTrue(NAME in parsed_json)
         self.assertEquals(data, serializer.deserialize(A, s))
  
+    def test_unboxed_struct(self):
+        class Unboxed(Unimodel):
+            a = Field(Int)
+            b = Field(Int)
+
+        class Parent(Unimodel):
+            a = Field(
+                    Struct(Unboxed),
+                    metadata=Metadata(
+                        backend_data={'json': JSONFieldData(is_unboxed=True)}))
+            c = Field(Int)
+
+        serializer = JSONSerializer()
+        data = Parent(a=Unboxed(a=1,b=2),c=3)
+        s = serializer.serialize(data)
+        parsed_json = json.loads(s)
+        self.assertEquals(sorted(parsed_json.keys()), ["a", "b", "c"])
+        self.assertEquals(data, serializer.deserialize(Parent, s))

@@ -1,25 +1,13 @@
-class StructType(object):
-    DEFAULT=0
-    UNBOXED=1
-    FLATTENED=2
-
-class JSONStructData(object):
-
-    def __init__(
-            self,
-            # struct_type influcences how Struct objects are mapped to dicts
-            struct_type=StructType.DEFAULT,
-            # allow_additional_fields only influences the jsonschema definition
-            allow_additional_fields=True):
-        self.struct_type = struct_type
-        self.allow_additional_fields = allow_additional_fields
-
 class JSONFieldData(object):
 
     def __init__(
             self,
-            property_name=None):
-        self.property_name = property_name                
+            property_name=None,
+            # is_unboxed only makes sense for Struct type fields
+            is_unboxed=False):
+        self.property_name = property_name
+        self.is_unboxed = is_unboxed
+
  
 
 class JSONTypeData(object):
@@ -41,3 +29,16 @@ def get_field_by_name(struct_class, name):
         if get_field_name(field) == name:
             return field
     return None
+
+def is_unboxed_struct_field(field):
+    from unimodel.types import Struct
+    if not isinstance(field.field_type, Struct):
+        return False
+    if not field.metadata:
+        return False
+    json_backend_data = field.metadata.backend_data.get('json', None)
+    if not json_backend_data:
+        return False
+    if not isinstance(json_backend_data, JSONFieldData):
+        return False
+    return json_backend_data.is_unboxed

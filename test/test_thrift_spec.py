@@ -62,11 +62,8 @@ class ThriftSpecTestCase(TestCase):
             (-1, TType.MAP, None, [TType.I64, None, TType.STRING, None], None))
 
     def test_struct_field(self):
-        """ a unimodel's spec is part of a StructFields
-            spec (if the struct field has the model's type) """
         field = Field(types.Int)
         class F(Unimodel):
             f = field
-        self.assertEquals(
-            self.spec_factory.get_spec_for_struct(F),
-            [None, self.get_field_spec(field)])
+        struct_spec = self.spec_factory.get_spec_for_struct(F)
+        self.assertEquals(struct_spec, [None, (1, 10, 'f', None, None)])

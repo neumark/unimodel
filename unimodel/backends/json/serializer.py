@@ -5,7 +5,7 @@ from unimodel.backends.base import Serializer
 from unimodel import types
 from contextlib import contextmanager
 from unimodel.validation import ValidationException, ValueTypeException
-from unimodel.backends.json.type_data import get_field_name, get_field_by_name
+from unimodel.backends.json.type_data import get_field_name, get_field_by_name, is_unboxed_struct_field
 
 class SerializationException(Exception):
     pass
@@ -71,14 +71,17 @@ class JSONSerializer(Serializer):
         with self.context.context("", obj.__class__, obj):
             return json.dumps(self.writeStruct(obj))
 
-    def writeStruct(self, obj):
-        output = {}
+    def writeStruct(self, obj, output=None):
+        output = {} if output is None else output
+        unboxed_struct_fields = self.get_unboxed_struct_fields(obj.get_field_definitions())
         for name, value in obj.items():
             if value is not None:
                 field = obj.get_field_definition(name)
-                field_type = field.field_type
-                with self.context.context(name, field_type, value):
-                    output[get_field_name(field)] = self.writeField(field_type, value)
+                with self.context.context(name, field.field_type, value):
+                    if field in unboxed_struct_fields:
+                        self.writeStruct(value, output)
+                    else:
+                        output[get_field_name(field)] = self.writeField(field.field_type, value)
         return output
 
     def writeField(self, field_type, value):
@@ -162,20 +165,35 @@ class JSONSerializer(Serializer):
             return
         raise SerializationException("JSON serializer cannot use type '%s' map keys" % str(map_key_type))
 
-    def readStruct(self, struct_class, json_obj):
+    def get_unboxed_struct_fields(self, field_definitions):
+        unboxed_struct_fields = []
+        for field in field_definitions:
+            if is_unboxed_struct_field(field):
+                unboxed_struct_fields.append(field)
+        return sorted(unboxed_struct_fields, key=lambda f: f.field_id)
+
+    def readStruct(self, struct_class, json_obj, target_obj=None):
         self.assert_type(dict, json_obj)
-        target_obj = self.get_implementation_class(struct_class)()
-        known_fields = []
+        if target_obj is None:
+            target_obj = self.get_implementation_class(struct_class)()
+        read_fields = []
         unknown_fields = []
+        unboxed_struct_fields = self.get_unboxed_struct_fields(struct_class.get_field_definitions())
         for key, raw_value in json_obj.iteritems():
             field = get_field_by_name(target_obj, key)
-            if field is None:
+            # unboxed_struct_fields should not be read as regular values
+            if field is None or field in unboxed_struct_fields:
                 unknown_fields.append(key)
                 continue
-            known_fields.append(key)
+            read_fields.append(key)
             with self.context.context(key, field.field_type, raw_value):
                 parsed_value = self.readField(field.field_type, raw_value)
                 target_obj._set_value_by_field_id(field.field_id, parsed_value)
+        # Read the subfields of unboxed fields
+        for unboxed_struct_field in unboxed_struct_fields:
+             target_obj._set_value_by_field_id(
+                    unboxed_struct_field.field_id,
+                    self.readStruct(unboxed_struct_field.field_type.python_type, json_obj))
         if not self.skip_unknown_fields and len(unknown_fields) > 0:
             raise JSONValidationException(
                 "unknown fields: %s" % ", ".join(unknown_fields),

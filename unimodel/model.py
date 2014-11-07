@@ -1,19 +1,21 @@
 import sys
-import types
-import itertools
-import inspect
-from functools import wraps
+import copy
 from unimodel.metadata import Metadata
+
 class FieldFactory(object):
 
     def field_dict_to_field_list(self, field_dict):
         # Then, we process the contents of field_dict
         field_list = []
         for field_name, field in field_dict.iteritems():
-        # set missing field names
-            if field.field_name is None:
-                field.field_name = field_name
-            field_list.append(field)
+            # A copy of the field is made so that changes to the field
+            # like replacing default field ids and field names are
+            # not reflected in the original field definition.
+            field_copy = copy.copy(field)
+            # set missing field names
+            if field_copy.field_name is None:
+                field_copy.field_name = field_name
+            field_list.append(field_copy)
         return field_list
 
     def add_fields(self, cls, fields=None):
@@ -81,11 +83,16 @@ class Field(object):
 class UnimodelMetaclass(type):
     def __init__(cls, name, bases, dct):
         super(UnimodelMetaclass, cls).__init__(name, bases, dct)
-        fields = dict([(k,v) for k,v in dct.iteritems() if isinstance(v, Field)])
-        # Note: we could optionally pass a custom FieldMerger here if needed.
+        field_dict = dict([(k,v) for k,v in dct.iteritems() if isinstance(v, Field)])
+        setattr(cls, "_field_dict", field_dict)
+        fields = {}
+        # for each base class, add it's _field_dict to fields
+        for base in bases:
+            if hasattr(base, "_field_dict"):
+                fields.update(base._field_dict)
+        fields.update(field_dict)
         field_factory = FieldFactory()
         field_factory.add_fields(cls, fields)
-
 
 class Unimodel(object):
 
