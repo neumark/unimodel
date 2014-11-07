@@ -1,4 +1,4 @@
-from unittest import TestCase, skipIf
+from unittest import TestCase
 from unimodel.backends.json.schema import JSONSchemaWriter
 from unimodel.backends.json.serializer import JSONSerializer
 from test.helpers import flatten
@@ -6,12 +6,7 @@ from test.fixtures import TreeNode, AllTypes, NodeData, data
 from unimodel.model import Unimodel, Field
 from unimodel.types import *
 import json
-
-jsonschema = None
-try:
-    import jsonschema
-except ImportError:
-    pass
+import jsonschema
 
 class JSONSchemaTestCase(TestCase):
 
@@ -50,9 +45,7 @@ class JSONSchemaTestCase(TestCase):
         # make sure dependent type NodeData present
         self.assertEquals(schema['properties'].keys(), [NAME])
 
-
-    @skipIf(jsonschema is None, "json schema validation requires the jsonschema package")
-    def test_validate_schema(self):
+    def test_validate_recursive_schema(self):
         # based on http://sacharya.com/validating-json-using-python-jsonschema/ 
         schema_writer = JSONSchemaWriter()
         schema = schema_writer.get_schema_ast(TreeNode)
@@ -60,9 +53,7 @@ class JSONSchemaTestCase(TestCase):
         json_data = json.loads(serializer.serialize(data))
         jsonschema.validate(json_data, schema)
 
-
-    @skipIf(jsonschema is None, "json schema validation requires the jsonschema package")
-    def test_validate_schema(self):
+    def test_validate_all_types(self):
         # based on http://sacharya.com/validating-json-using-python-jsonschema/ 
         schema_writer = JSONSchemaWriter()
         schema = schema_writer.get_schema_ast(AllTypes)

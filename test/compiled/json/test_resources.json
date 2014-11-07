@@ -1,284 +1,284 @@
 {
     "constants": [
         {
-            "name": "default_blacklist", 
-            "type": "TDL", 
+            "name": "default_blacklist",
+            "type": "TDL",
             "value": "[[mediaservice:[[company:reuse,ipaddress:127.0.0.1,timestamp:0,notified:0],[company:dynapps,ipaddress:127.0.0.1,timestamp:1000,notified:1]],presentationservice:[[company:dropbox,ipaddress:158.3.4.5,timestamp:0,notified:1]]],[storageproxy:[[company:keynote,ipaddress:148.23.45.5,timestamp:2342342,notified:0]]]]"
         }
-    ], 
+    ],
     "enums": [
         {
             "members": [
                 {
-                    "name": "ADD", 
+                    "name": "ADD",
                     "value": "1"
-                }, 
+                },
                 {
-                    "name": "SUB", 
+                    "name": "SUB",
                     "value": "2"
                 }
-            ], 
+            ],
             "name": "T"
-        }, 
+        },
         {
             "members": [
                 {
-                    "name": "add", 
+                    "name": "add",
                     "value": "1"
-                }, 
+                },
                 {
-                    "name": "sub", 
+                    "name": "sub",
                     "value": "2"
                 }
-            ], 
+            ],
             "name": "T2"
         }
-    ], 
-    "name": "test_resources", 
+    ],
+    "name": "test_resources",
     "services": [
         {
             "functions": [
                 {
-                    "arguments": [], 
-                    "exceptions": [], 
-                    "name": "ping", 
+                    "arguments": [],
+                    "exceptions": [],
+                    "name": "ping",
                     "returnType": "void"
-                }, 
+                },
                 {
                     "arguments": [
                         {
-                            "index": "1", 
-                            "name": "parent1", 
-                            "required": "false", 
+                            "index": "1",
+                            "name": "parent1",
+                            "required": "false",
                             "type": "TDL"
-                        }, 
+                        },
                         {
-                            "index": "2", 
-                            "name": "parent2", 
-                            "required": "false", 
+                            "index": "2",
+                            "name": "parent2",
+                            "required": "false",
                             "type": "TDL"
                         }
-                    ], 
+                    ],
                     "exceptions": [
                         {
-                            "index": "1", 
-                            "name": "ex1", 
-                            "required": "false", 
+                            "index": "1",
+                            "name": "ex1",
+                            "required": "false",
                             "type": "InvalidOperation"
                         }
-                    ], 
-                    "name": "merge", 
+                    ],
+                    "name": "merge",
                     "returnType": "TDL"
-                }, 
+                },
                 {
-                    "arguments": [], 
-                    "exceptions": [], 
-                    "name": "zip", 
-                    "oneWay": "true", 
+                    "arguments": [],
+                    "exceptions": [],
+                    "name": "zip",
+                    "oneWay": "true",
                     "returnType": "void"
                 }
-            ], 
+            ],
             "name": "Base"
-        }, 
+        },
         {
-            "extendsType": "Base", 
+            "extendsType": "Base",
             "functions": [
                 {
                     "arguments": [
                         {
-                            "index": "1", 
-                            "name": "arg", 
-                            "required": "false", 
+                            "index": "1",
+                            "name": "arg",
+                            "required": "false",
                             "type": "A"
                         }
-                    ], 
+                    ],
                     "exceptions": [
                         {
-                            "index": "1", 
-                            "name": "ex1", 
-                            "required": "false", 
+                            "index": "1",
+                            "name": "ex1",
+                            "required": "false",
                             "type": "InvalidOperation"
-                        }, 
+                        },
                         {
-                            "index": "2", 
-                            "name": "br", 
-                            "required": "false", 
+                            "index": "2",
+                            "name": "br",
+                            "required": "false",
                             "type": "BadRequest"
                         }
-                    ], 
-                    "name": "get_size", 
+                    ],
+                    "name": "get_size",
                     "returnType": "i32"
                 }
-            ], 
+            ],
             "name": "Child"
         }
-    ], 
+    ],
     "structs": [
         {
             "fields": [
                 {
-                    "index": "1", 
-                    "name": "company", 
-                    "required": "false", 
+                    "index": "1",
+                    "name": "company",
+                    "required": "false",
                     "type": "string"
-                }, 
+                },
                 {
-                    "index": "2", 
-                    "name": "ipaddress", 
-                    "required": "false", 
+                    "index": "2",
+                    "name": "ipaddress",
+                    "required": "false",
                     "type": "string"
-                }, 
+                },
                 {
-                    "index": "3", 
-                    "name": "timestamp", 
-                    "required": "false", 
+                    "index": "3",
+                    "name": "timestamp",
+                    "required": "false",
                     "type": "i64"
-                }, 
+                },
                 {
-                    "index": "4", 
-                    "name": "notified", 
-                    "required": "false", 
+                    "index": "4",
+                    "name": "notified",
+                    "required": "false",
                     "type": "bool"
                 }
-            ], 
+            ],
             "name": "SomeStruct"
-        }, 
+        },
         {
             "fields": [
                 {
-                    "index": "1", 
-                    "name": "a", 
-                    "required": "false", 
+                    "index": "1",
+                    "name": "a",
+                    "required": "false",
                     "type": "i64"
-                }, 
+                },
                 {
-                    "index": "2", 
-                    "name": "c", 
-                    "required": "false", 
+                    "index": "2",
+                    "name": "c",
+                    "required": "false",
                     "type": "SomeStruct"
-                }, 
+                },
                 {
-                    "default": "6", 
-                    "index": "3", 
-                    "name": "d", 
-                    "required": "false", 
+                    "default": "6",
+                    "index": "3",
+                    "name": "d",
+                    "required": "false",
                     "type": "i64"
-                }, 
+                },
                 {
-                    "index": "4", 
-                    "name": "e", 
-                    "required": "false", 
+                    "index": "4",
+                    "name": "e",
+                    "required": "false",
                     "type": "list<string>"
-                }, 
+                },
                 {
-                    "index": "5", 
-                    "name": "f", 
-                    "required": "false", 
+                    "index": "5",
+                    "name": "f",
+                    "required": "false",
                     "type": "list<SomeStruct>"
-                }, 
+                },
                 {
-                    "index": "6", 
-                    "name": "g", 
-                    "required": "false", 
+                    "index": "6",
+                    "name": "g",
+                    "required": "false",
                     "type": "map<i64,string>"
-                }, 
+                },
                 {
-                    "index": "7", 
-                    "name": "h", 
-                    "required": "false", 
+                    "index": "7",
+                    "name": "h",
+                    "required": "false",
                     "type": "list<map<i64,list<SomeStruct>>>"
                 }
-            ], 
+            ],
             "name": "A"
-        }, 
+        },
         {
             "fields": [
                 {
-                    "index": "1", 
-                    "name": "a", 
-                    "required": "false", 
+                    "index": "1",
+                    "name": "a",
+                    "required": "false",
                     "type": "i64"
-                }, 
+                },
                 {
-                    "index": "2", 
-                    "name": "b", 
-                    "required": "false", 
+                    "index": "2",
+                    "name": "b",
+                    "required": "false",
                     "type": "string"
                 }
-            ], 
+            ],
             "name": "B"
-        }, 
+        },
         {
             "fields": [
                 {
-                    "index": "1", 
-                    "name": "b", 
-                    "required": "true", 
+                    "index": "1",
+                    "name": "b",
+                    "required": "true",
                     "type": "B"
-                }, 
+                },
                 {
-                    "index": "2", 
-                    "name": "t", 
-                    "required": "false", 
+                    "index": "2",
+                    "name": "t",
+                    "required": "false",
                     "type": "T"
-                }, 
+                },
                 {
-                    "index": "3", 
-                    "name": "s", 
-                    "required": "false", 
+                    "index": "3",
+                    "name": "s",
+                    "required": "false",
                     "type": "binary"
                 }
-            ], 
+            ],
             "name": "C"
-        }, 
+        },
         {
             "fields": [
                 {
-                    "index": "1", 
-                    "name": "what", 
-                    "required": "false", 
+                    "index": "1",
+                    "name": "what",
+                    "required": "false",
                     "type": "i32"
-                }, 
+                },
                 {
-                    "index": "2", 
-                    "name": "why", 
-                    "required": "false", 
+                    "index": "2",
+                    "name": "why",
+                    "required": "false",
                     "type": "string"
                 }
-            ], 
-            "isException": "true", 
+            ],
+            "isException": "true",
             "name": "InvalidOperation"
-        }, 
+        },
         {
             "fields": [
                 {
-                    "index": "1", 
-                    "name": "c", 
-                    "required": "false", 
+                    "index": "1",
+                    "name": "c",
+                    "required": "false",
                     "type": "C"
-                }, 
+                },
                 {
-                    "index": "2", 
-                    "name": "b", 
-                    "required": "false", 
+                    "index": "2",
+                    "name": "b",
+                    "required": "false",
                     "type": "B"
                 }
-            ], 
-            "isException": "true", 
+            ],
+            "isException": "true",
             "name": "BadRequest"
         }
-    ], 
+    ],
     "typedefs": [
         {
-            "name": "int_linked_list", 
+            "name": "int_linked_list",
             "type": "list<i32>"
-        }, 
+        },
         {
-            "name": "Application", 
+            "name": "Application",
             "type": "string"
-        }, 
+        },
         {
-            "name": "TDL", 
+            "name": "TDL",
             "type": "list<map<Application,list<SomeStruct>>>"
         }
     ]

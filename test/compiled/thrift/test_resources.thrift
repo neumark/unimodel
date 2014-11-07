@@ -21,7 +21,7 @@ typedef list<map<Application, list<SomeStruct>>> TDL
 const TDL default_blacklist = [
     {
         "mediaservice": [
-                {'company': "reuse", 'ipaddress': "127.0.0.1", 'timestamp': 0, 'notified': false},
+                {"company": "reuse", 'ipaddress': "127.0.0.1", 'timestamp': 0, 'notified': false},
                 {'company': "dynapps", 'ipaddress': "127.0.0.1", 'timestamp': 1000, 'notified': true}
         ],
         "presentationservice": [
