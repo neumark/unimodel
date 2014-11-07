@@ -162,7 +162,7 @@ class Unimodel(object):
         super(Unimodel, self).__setattr__(name, value)
 
     def __eq__(self, other):
-        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+        return isinstance(other, self.__class__) and self._model_data == other._model_data
 
     def __ne__(self, other):
         return not (self == other)

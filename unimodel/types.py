@@ -88,10 +88,48 @@ class CollectionType(BasicType):
         self.validate_elements(collection, self.type_parameters[0])
 
 
-class Int(BasicType, NumberType):
+# TODO: int range validation!
+class Int64(BasicType, NumberType):
     python_type = int
     thrift_type_id = TType.I64
     json_type = "number"
+
+Int = Int64  # default is 64 bit integers
+
+class Int32(Int):
+    thrift_type_id = TType.I32
+
+class Int16(Int):
+    thrift_type_id = TType.I16
+
+class Int8(Int):
+    thrift_type_id = TType.I08
+
+class Enum(Int):
+    json_type = "enum"
+    thrift_type_id = TType.I64
+
+    def __init__(self, enum_dict, *args, **kwargs):
+        super(Enum, self).__init__(*args, **kwargs)
+        self.keys_to_names = enum_dict
+        self.names_to_keys = {}
+        for k, v in enum_dict.items():
+            if not is_str(v):
+                raise Exception("Enum names must be strings")
+            if v in self.names_to_keys:
+                raise Exception("Duplicate enum value: %s" % k)
+            self.names_to_keys[v] = k
+
+    def validate(self, value):
+        super(Enum, self).validate(value)
+        if not (value in self.keys_to_names.keys()):
+            raise ValueTypeException("%s is an invalid value for this enum. Valid values: %s" % (value, str(self.keys_to_names)))
+    
+    def name_to_key(self, name):
+        return self.names_to_keys[name]
+
+    def key_to_name(self, key):
+        return self.keys_to_names[key]
 
 class Double(BasicType, NumberType):
     python_type = float

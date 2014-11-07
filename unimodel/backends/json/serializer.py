@@ -80,6 +80,8 @@ class JSONSerializer(Serializer):
         return output
 
     def writeField(self, field_type, value):
+        if isinstance(field_type, types.Enum):
+            return self.writeEnum(field_type, value)
         if isinstance(field_type, types.NumberType):
             return self.writeValue(value)
         if isinstance(field_type, types.StringType):
@@ -97,6 +99,9 @@ class JSONSerializer(Serializer):
     def writeValue(self, value):
         return value
 
+    def writeEnum(self, field_type, value):
+        return field_type.key_to_name(value)
+ 
     def writeString(self, field_type, value):
         if isinstance(field_type, types.Binary):
             return base64.b64encode(value)
@@ -117,6 +122,7 @@ class JSONSerializer(Serializer):
         """ write maps """
         output = {}
         map_key_type = type_definition.type_parameters[0]
+        self.assert_map_key_type(map_key_type)
         map_value_type = type_definition.type_parameters[1]
         for key, value in collection.items():
             with self.context.context(key, map_key_type, key):
@@ -147,6 +153,13 @@ class JSONSerializer(Serializer):
         except ValidationException, e:
             raise JSONValidationException("Error reading '%s' as %s" % (value, type_definition.__class__.__name__), self.context, e)
 
+    def assert_map_key_type(self, map_key_type):
+        if isinstance(map_key_type, types.Int):
+            return
+        if isinstance(map_key_type, types.UTF8):
+            return
+        raise SerializationException("JSON serializer cannot use type '%s' map keys" % str(map_key_type))
+
     def readStruct(self, struct_class, json_obj):
         self.assert_type(dict, json_obj)
         target_obj = self.get_implementation_class(struct_class)()
@@ -172,6 +185,8 @@ class JSONSerializer(Serializer):
         return target_obj
 
     def readField(self, type_definition, value):
+        if isinstance(type_definition, types.Enum):
+            return self.readEnum(type_definition, value)
         if isinstance(type_definition, types.NumberType):
             return self.readValue(type_definition, value)
         if isinstance(type_definition, types.StringType):
@@ -185,6 +200,11 @@ class JSONSerializer(Serializer):
         if isinstance(type_definition, types.List):
             return self.readList(type_definition, value)
         raise Exception("Cannot read type %s (value is %s)" % (str(type_definition), str(value)))
+
+    def readEnum(self, type_definition, name):
+        enum_key = type_definition.name_to_key(name)
+        self.assert_valid(type_definition, enum_key)
+        return enum_key
 
     def readValue(self, type_definition, value):
         self.assert_valid(type_definition, value)
@@ -200,11 +220,14 @@ class JSONSerializer(Serializer):
         self.assert_type(dict, collection)
         result = {}
         map_key_type = type_definition.type_parameters[0]
+        self.assert_map_key_type(map_key_type)
         map_type_definition = type_definition.type_parameters[1]
         for encoded_key, encoded_value in collection.items():
-            with self.context.context(encoded_key, map_key_type, encoded_value):
+            if isinstance(map_key_type, types.Int) and not isinstance(map_key_type, types.Enum):
+                encoded_key = int(encoded_key)
+            with self.context.context(encoded_key, map_key_type, encoded_key):
                 key = self.readField(map_key_type, encoded_key)
-            with self.context.context(encoded_value, map_type_definition, encoded_value):
+            with self.context.context(encoded_key, map_type_definition, encoded_value):
                 value = self.readField(map_type_definition, encoded_value)
             result[key] = value
         type_definition.validate(result)

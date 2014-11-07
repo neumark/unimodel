@@ -96,7 +96,7 @@ STRUCT_MAP_DEFINITION_TEMPLATE = {
     "type": "object",
     "properties": { },  # Fill with field definitions
     "additionalProperties": True,
-    "required": [ ],  # Fill with required field names
+    "required": [],  # Fill with required field names
 }
 
 SCHEMA_TEMPLATE = dict(copy.deepcopy(STRUCT_MAP_DEFINITION_TEMPLATE).items() + {
@@ -129,23 +129,29 @@ class JSONSchemaWriter(SchemaWriter):
         for struct_class in self.struct_classes:
             self.get_dependencies_for_one_struct(struct_class, struct_dependencies)
         schema = copy.deepcopy(SCHEMA_TEMPLATE)
+        schema['description'] = self.description
         # Note, the root class will be added to the definitions list
         # even if it is only used to desribe the top-level object.
         schema['definitions'] = dict([self.get_struct_definition(s) for s in struct_dependencies])
-        self.add_struct_properties(root_struct_class, schema['properties'])
+        self.add_struct_properties(root_struct_class, schema)
         return schema
 
     def get_struct_definition(self, struct_class):
         """ returns (name, definition) pairs """
         struct_def = copy.deepcopy(STRUCT_MAP_DEFINITION_TEMPLATE)
-        self.add_struct_properties(struct_class, struct_def['properties'])
+        self.add_struct_properties(struct_class, struct_def)
         return (struct_class.get_name(), struct_def)
 
-    def add_struct_properties(self, struct_class, def_properties):
+    def add_struct_properties(self, struct_class, struct_def):
         if struct_class.get_field_definitions():
+            required = []
             for field in struct_class.get_field_definitions():
-                def_properties[field.field_name] = self.get_type_definition(field.field_type)
-        # TODO: additionalProperties, required
+                struct_def['properties'][field.field_name] = self.get_type_definition(field.field_type)
+                if field.required:
+                    required.append(field.field_name)
+            struct_def['required'] = required
+        if 'required' in struct_def and not struct_def['required']:
+            del struct_def['required']
 
     def get_type_definition(self, type_definition):
         """ returns field (name, definition) pair """
@@ -178,6 +184,7 @@ class JSONSchemaWriter(SchemaWriter):
         # It's not possible to write a schema for a map type on jsonschema.
         # Yes, I know it's crazy. I'm not the one who wanted to ditch Thrift for this crap! :)
         field_def = copy.deepcopy(STRUCT_MAP_DEFINITION_TEMPLATE)
+        del field_def['required']
         return field_def
 
     def define_list(self, type_definition):

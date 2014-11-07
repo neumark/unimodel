@@ -26,6 +26,23 @@ class JSONSerializerTestCase(TestCase):
         self.assertEquals(type(d.u), unicode)
         self.assertNotEquals(d.s, json_data['s'])
 
+    def test_enum_serialize(self):
+        """ serialize a complex recursive datatype into JSON """
+        class A(Unimodel):
+            f = Field(Enum({1: "one", 2: "two"}))
+        serializer = JSONSerializer()
+        s = serializer.serialize(A(f=1))
+        parsed_json = json.loads(s)
+        self.assertEquals(parsed_json['f'], "one")
+        d = serializer.deserialize(A, s)
+        self.assertEquals(d.f, 1)
+        exc = None
+        try:
+            serializer.serialize(A(f=33))
+        except Exception, exc:
+            pass
+        self.assertTrue(isinstance(exc, ValueTypeException))
+
     def test_json_serialize(self):
         """ serialize a complex recursive datatype into JSON """
         pre_flattened = flatten(data)
@@ -67,3 +84,32 @@ class JSONSerializerTestCase(TestCase):
         self.assertEquals(type(exc), JSONValidationException)
         self.assertEquals(exc.context.current_path(), "")
         self.assertTrue("unknown fields" in str(exc))
+
+    def test_map_key_types(self):
+        class A(Unimodel):
+            a = Field(Map(UTF8, Int))
+            b = Field(Map(Binary, Int))
+            c = Field(Map(Int8, Int))
+            d = Field(Map(Int, Int))
+            e = Field(Map(Enum({1: "one", 2: "two"}), Int))
+
+        data = A(
+                a = {"a": 1},
+                b = {bin(173): 1},
+                c = {1: 1},
+                d = {2**40: 1},
+                e = {2: 1})
+
+        serializer = JSONSerializer()
+        s = serializer.serialize(data)
+        read_data = serializer.deserialize(A, s)
+        self.assertEquals(data, read_data)
+
+        class B(Unimodel):
+            a = Field(Map(Double, Int))
+
+        exc = None
+        try:
+            print serializer.serialize(B(a={2.333: 1}))
+        except Exception, exc:
+            pass

@@ -15,6 +15,21 @@ field_factory.add_fields(TreeNode, {
     'children': Field(types.List(types.Struct(TreeNode))),
     'data': Field(types.Struct(NodeData))})
 
+class AllTypes(Unimodel):
+    f_struct = Field(types.Struct(NodeData))
+    f_union = Field(types.Union(NodeData))
+    f_utf8 = Field(types.UTF8)
+    f_binary = Field(types.Binary)
+    f_int64 = Field(types.Int64)
+    f_int32 = Field(types.Int32)
+    f_int16 = Field(types.Int16)
+    f_int8 = Field(types.Int8)
+    f_double = Field(types.Double)
+    f_enum = Field(types.Enum({1: "one", 2: "two", 3: "three"}))
+    f_list = Field(types.List(types.Int))
+    f_set = Field(types.List(types.Int))
+    f_map = Field(types.Map(types.UTF8, types.Int))
+
 data = TreeNode(
         children=[
             TreeNode(

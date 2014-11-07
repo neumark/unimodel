@@ -55,6 +55,11 @@ enum T {
     SUB = 2
 }
 
+enum T2 {
+    add = 1,
+    sub = 2
+}
+
 struct C {
   1: required B b,
   2: optional T t,

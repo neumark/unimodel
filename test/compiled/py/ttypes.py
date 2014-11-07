@@ -25,6 +25,20 @@ class T(TBase):
     "SUB": 2,
   }
 
+class T2(TBase):
+  add = 1
+  sub = 2
+
+  _VALUES_TO_NAMES = {
+    1: "add",
+    2: "sub",
+  }
+
+  _NAMES_TO_VALUES = {
+    "add": 1,
+    "sub": 2,
+  }
+
 
 class SomeStruct(TBase):
   """
