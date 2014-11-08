@@ -99,7 +99,7 @@ class JSONSerializer(Serializer):
             return self.writeList(field_type, value)
         if isinstance(field_type, types.Map):
             return self.writeMap(field_type, value)
-        raise Exception("Don't know how to write type %s (value %s)" % (field, value))
+        raise Exception("Don't know how to write type %s (value %s)" % (field_type, value))
 
     def writeValue(self, value):
         return value
@@ -193,7 +193,8 @@ class JSONSerializer(Serializer):
         for unboxed_struct_field in unboxed_struct_fields:
              target_obj._set_value_by_field_id(
                     unboxed_struct_field.field_id,
-                    self.readStruct(unboxed_struct_field.field_type.python_type, json_obj))
+                    self.readStruct(unboxed_struct_field.field_type.python_type,
+                        dict([(k, v) for k, v in json_obj.items() if k not in read_fields])))
         if not self.skip_unknown_fields and len(unknown_fields) > 0:
             raise JSONValidationException(
                 "unknown fields: %s" % ", ".join(unknown_fields),

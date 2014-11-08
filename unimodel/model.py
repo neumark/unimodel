@@ -198,6 +198,25 @@ class Unimodel(object):
     def get_name(cls):
         return cls.__name__
 
+class UnimodelUnion(Unimodel):
+
+    def current_field(self):
+        set_fields = []
+        for f in self.get_field_definitions():
+            value = self._get_value_by_field_id(current_field.field_id)
+            if value is not None:
+                set_fields.append(f.field_name, value)
+        if not set_fields:
+            return None
+        if len(set_fields) > 1:
+            raise Exception("Union has too many set fields: %s" % str(set_fields))
+        return set_fields[0]
+
+    def current_value(self):
+        current_field_name = self.current_field()
+        if not current_field:
+            return None
+        return self[current_field_name]
 
 class ModelRegistry(object):
 
