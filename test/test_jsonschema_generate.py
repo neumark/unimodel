@@ -7,6 +7,7 @@ from unimodel.backends.json.generator import JSONSchemaModelGenerator
 from test.helpers import flatten
 from test.fixtures import TreeNode, AllTypes, NodeData, data
 from unimodel.model import Unimodel, Field
+from unimodel.codegen import SchemaCompiler
 
 class JSONSchemaGenerate(TestCase):
 
@@ -23,10 +24,12 @@ class JSONSchemaGenerate(TestCase):
             schema = json.loads(f.read())
         generator = JSONSchemaModelGenerator('untitled', schema)
         serializer = JSONSerializer()
-        json_data = json.loads(serializer.serialize(generator.generate_model_schema()))
+        ast = generator.generate_model_schema()
+        json_data = json.loads(serializer.serialize(ast))
         print generator.unparsed.keys()
         output_json = json.dumps(
             json_data,
             sort_keys=True,
             indent=4,
             separators=(',', ': '))
+        print SchemaCompiler(ast).generate_model_classes()
