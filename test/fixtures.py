@@ -17,7 +17,6 @@ field_factory.add_fields(TreeNode, {
 
 class AllTypes(Unimodel):
     f_struct = Field(types.Struct(NodeData))
-    f_union = Field(types.Union(NodeData))
     f_utf8 = Field(types.UTF8)
     f_binary = Field(types.Binary)
     f_int64 = Field(types.Int64)

@@ -3,6 +3,7 @@ from thrift.transport import TTransport
 from thrift.protocol.TBase import TBase
 from unimodel.backends.base import Serializer
 from unimodel.backends.thrift.type_data import TType
+from unimodel.types import Tuple
 
 class ThriftSpecFactory(object):
 
@@ -12,6 +13,7 @@ class ThriftSpecFactory(object):
             from unimodel.model import ModelRegistry
             self.model_registry = ModelRegistry()
         self._spec_cache = {}
+        self.tuple_type_cache = {}
 
     def get_spec(self, struct_class):
         if struct_class not in self._spec_cache:
@@ -27,8 +29,15 @@ class ThriftSpecFactory(object):
             thrift_spec.append(self.get_spec_for_field(f))
         return thrift_spec
 
+    def get_tuple_type_parameter(self, field_type):
+        #tuple_id = 
+        return None #(implementation_class, self.get_spec(implementation_class))
+
     def get_spec_type_parameter(self, field_type):
         """ Returns value 3 of the element in thrift_spec which defines this field. """
+        # tuples are encoded as structs
+        if isinstance(field_type, Tuple):
+            return self.get_tuple_type_parameter(field_type)
         # structs are a special case
         if field_type.metadata.backend_data['thrift'].type_id == TType.STRUCT:
             interface_class = field_type.python_type

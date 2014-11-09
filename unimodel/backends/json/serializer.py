@@ -72,6 +72,7 @@ class JSONSerializer(Serializer):
             return json.dumps(self.writeStruct(obj))
 
     def writeStruct(self, obj, output=None):
+        print obj
         output = {} if output is None else output
         unboxed_struct_fields = self.get_unboxed_struct_fields(obj.get_field_definitions())
         for name, value in obj.items():
@@ -89,7 +90,7 @@ class JSONSerializer(Serializer):
             return self.writeEnum(field_type, value)
         if isinstance(field_type, types.NumberType):
             return self.writeValue(value)
-        if isinstance(field_type, types.StringType):
+        if isinstance(field_type, types.UTF8):
             return self.writeString(field_type, value)
         if isinstance(field_type, types.Bool):
             return self.writeValue(value)
@@ -210,7 +211,7 @@ class JSONSerializer(Serializer):
             return self.readEnum(type_definition, value)
         if isinstance(type_definition, types.NumberType):
             return self.readValue(type_definition, value)
-        if isinstance(type_definition, types.StringType):
+        if isinstance(type_definition, types.UTF8):
             return self.readString(type_definition, value)
         if isinstance(type_definition, types.Bool):
             return self.readValue(type_definition, value)

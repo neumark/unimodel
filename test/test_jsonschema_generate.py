@@ -7,7 +7,7 @@ from unimodel.backends.json.generator import JSONSchemaModelGenerator
 from test.helpers import flatten
 from test.fixtures import TreeNode, AllTypes, NodeData, data
 from unimodel.model import Unimodel, Field
-from unimodel.codegen import SchemaCompiler
+from unimodel.codegen import SchemaCompiler, load_module
 
 class JSONSchemaGenerate(TestCase):
 
@@ -22,9 +22,11 @@ class JSONSchemaGenerate(TestCase):
     def test_simple_struct(self):
         with open("/Users/neumark/git/swagger-spec/schemas/v2.0/schema.json", "r") as f:
             schema = json.loads(f.read())
-        generator = JSONSchemaModelGenerator('untitled', schema)
+        schema_name = 'swagger'
+        generator = JSONSchemaModelGenerator(schema_name, schema)
         serializer = JSONSerializer()
         ast = generator.generate_model_schema()
+        import pdb;pdb.set_trace()
         json_data = json.loads(serializer.serialize(ast))
         print generator.unparsed.keys()
         output_json = json.dumps(
@@ -32,4 +34,6 @@ class JSONSchemaGenerate(TestCase):
             sort_keys=True,
             indent=4,
             separators=(',', ': '))
-        print SchemaCompiler(ast).generate_model_classes()
+        python_source = SchemaCompiler(ast).generate_model_classes()
+        module = load_module(ast.common.name, python_source)
+        print dir(module)

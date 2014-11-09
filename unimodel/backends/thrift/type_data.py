@@ -47,20 +47,26 @@ class ThriftTypeData(object):
             self,
             type_id=-1,  # Note: The default value is invalid
             is_binary=False,
-            is_union=False):
-        self.field_type = None  # set to reference FieldType object in BasicType constructor
+            is_union=False,
+            is_tuple=False):
         self.type_id = type_id
         self.is_binary = is_binary
         self.is_union = is_union
+        self.is_tuple = is_tuple
 
-    def type_name(self):
-        name = TType._VALUES_TO_NAMES[self.type_id].lower()
-        if name == "string" and self.is_binary:
+    @classmethod
+    def type_name(cls, field):
+        from unimodel.model import UnimodelUnion
+        thrift_type_data = field.field_type.metadata.backend_data['thrift']
+        name = TType._VALUES_TO_NAMES[thrift_type_data.type_id].lower()
+        if name == "string" and thrift_type_data.is_binary:
             name = "binary"
-        if name == "struct" and self.is_union:
+        if name == "struct" and isinstance(field.field_type.python_type, UnimodelUnion):
             name = "union"
-        if self.field_type.type_parameters:
-            name += "<%s>" % ", ".join([t.type_name() for t in self.field_type.type_parameters])
+        # Note: no need to check for tuple, because they are structs too
+        # according to Thrift
+        if thrift_type_data.field_type.type_parameters:
+            name += "<%s>" % ", ".join([t.type_name() for t in thrift_type_data.field_type.type_parameters])
         return name
 
 class ThriftFieldData(object):
@@ -68,4 +74,10 @@ class ThriftFieldData(object):
     def __init__(
             self,
             is_optional=False):
+        # This reflects the ternary logic of required-ness in Thrift.
+        # If a field is not required, it's default, not optional.
+        # Setting this makes it optional.
+        # Note: the current python lib for thrift doesn't really
+        # differentiate default and optional, so this will only make
+        # a difference once we have thrift IDL generation.
         self.is_optional = is_optional

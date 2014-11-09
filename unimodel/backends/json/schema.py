@@ -161,7 +161,7 @@ class JSONSchemaWriter(SchemaWriter):
             return self.define_enum_field(type_definition)
         if isinstance(type_definition, types.NumberType):
             return self.define_basic_field(type_definition)
-        if isinstance(type_definition, types.StringType):
+        if isinstance(type_definition, types.UTF8):
             return self.define_basic_field(type_definition)
         if isinstance(type_definition, types.Bool):
             return self.define_basic_field(type_definition)

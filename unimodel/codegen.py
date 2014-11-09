@@ -1,5 +1,10 @@
 from unimodel.schema import *
 
+IMPORTS = """
+from unimodel.model import Unimodel, Field
+from unimodel import types
+"""
+
 CLASS_TEMPLATE = """
 class %(name)s(Unimodel):
 %(fields)s
@@ -18,10 +23,15 @@ class SchemaCompiler(object):
 
     def get_type_name(self, field_type):
         # TODO: STUB
-        return "Int"
+        return "types.Int"
 
     def get_field_declaration(self, field_def):
         name = field_def.common.name
+        # When we change the name, we need to record
+        # the original name too.
+        # TEMPORARY HACK (just to try out compilation)
+        if name in ['in', '$ref']:
+            name = "a"
         field_kwargs = ""
         field_type = self.get_type_name(field_def.field_type)
         source = FIELD_TEMPLATE % {
@@ -47,6 +57,7 @@ class SchemaCompiler(object):
             class_source = self.generate_struct_class(struct_def)
             self.compiled_structs[struct_def.common.name] = class_source
         combined_source = ""
+        combined_source += IMPORTS
         for src in self.compiled_structs.values():
             combined_source += src
         return combined_source
