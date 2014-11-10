@@ -3,43 +3,45 @@
 # import the whole apache thrift python lib from this file.
 # Instead the TType class is duplicated here.
 
-class TType:
-  STOP   = 0
-  VOID   = 1
-  BOOL   = 2
-  BYTE   = 3
-  I08    = 3
-  DOUBLE = 4
-  I16    = 6
-  I32    = 8
-  I64    = 10
-  STRING = 11
-  UTF7   = 11
-  STRUCT = 12
-  MAP    = 13
-  SET    = 14
-  LIST   = 15
-  UTF8   = 16
-  UTF16  = 17
 
-  _VALUES_TO_NAMES = ('STOP',
-                      'VOID',
-                      'BOOL',
-                      'BYTE',
-                      'DOUBLE',
-                      None,
-                      'I16',
-                      None,
-                      'I32',
-                      None,
-                     'I64',
-                     'STRING',
-                     'STRUCT',
-                     'MAP',
-                     'SET',
-                     'LIST',
-                     'UTF8',
-                     'UTF16')
+class TType:
+    STOP = 0
+    VOID = 1
+    BOOL = 2
+    BYTE = 3
+    I08 = 3
+    DOUBLE = 4
+    I16 = 6
+    I32 = 8
+    I64 = 10
+    STRING = 11
+    UTF7 = 11
+    STRUCT = 12
+    MAP = 13
+    SET = 14
+    LIST = 15
+    UTF8 = 16
+    UTF16 = 17
+
+    _VALUES_TO_NAMES = ('STOP',
+                        'VOID',
+                        'BOOL',
+                        'BYTE',
+                        'DOUBLE',
+                        None,
+                        'I16',
+                        None,
+                        'I32',
+                        None,
+                        'I64',
+                        'STRING',
+                        'STRUCT',
+                        'MAP',
+                        'SET',
+                        'LIST',
+                        'UTF8',
+                        'UTF16')
+
 
 class ThriftTypeData(object):
 
@@ -61,13 +63,18 @@ class ThriftTypeData(object):
         name = TType._VALUES_TO_NAMES[thrift_type_data.type_id].lower()
         if name == "string" and thrift_type_data.is_binary:
             name = "binary"
-        if name == "struct" and isinstance(field.field_type.python_type, UnimodelUnion):
+        if name == "struct" and isinstance(
+                field.field_type.python_type,
+                UnimodelUnion):
             name = "union"
         # Note: no need to check for tuple, because they are structs too
         # according to Thrift
         if thrift_type_data.field_type.type_parameters:
-            name += "<%s>" % ", ".join([t.type_name() for t in thrift_type_data.field_type.type_parameters])
+            name += "<%s>" % ", ".join([
+                t.type_name()
+                for t in thrift_type_data.field_type.type_parameters])
         return name
+
 
 class ThriftFieldData(object):
 

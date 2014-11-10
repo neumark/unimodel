@@ -4,103 +4,20 @@ import json
 from unimodel import types
 from unimodel.backends.json.type_data import get_field_name
 
-""" 
+"""
 Useful: http://www.jsonschema.net/
-Example from http://json-schema.org/example2.html
-
-{
-    "id": "http://some.site.somewhere/entry-schema#",
-    "$schema": "http://json-schema.org/draft-04/schema#",
-    "description": "schema for an fstab entry",
-    "type": "object",
-    "required": [ "storage" ],
-    "properties": {
-        "storage": {
-            "type": "object",
-            "oneOf": [
-                { "$ref": "#/definitions/diskDevice" },
-                { "$ref": "#/definitions/diskUUID" },
-                { "$ref": "#/definitions/nfs" },
-                { "$ref": "#/definitions/tmpfs" }
-            ]
-        },
-        "fstype": {
-            "enum": [ "ext3", "ext4", "btrfs" ]
-        },
-        "options": {
-            "type": "array",
-            "minItems": 1,
-            "items": { "type": "string" },
-            "uniqueItems": true
-        },
-        "readonly": { "type": "boolean" }
-    },
-    "definitions": {
-        "diskDevice": {
-            "properties": {
-                "type": { "enum": [ "disk" ] },
-                "device": {
-                    "type": "string",
-                    "pattern": "^/dev/[^/]+(/[^/]+)*$"
-                }
-            },
-            "required": [ "type", "device" ],
-            "additionalProperties": false
-        },
-        "diskUUID": {
-            "properties": {
-                "type": { "enum": [ "disk" ] },
-                "label": {
-                    "type": "string",
-                    "pattern": "^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$"
-                }
-            },
-            "required": [ "type", "label" ],
-            "additionalProperties": false
-        },
-        "nfs": {
-            "properties": {
-                "type": { "enum": [ "nfs" ] },
-                "remotePath": {
-                    "type": "string",
-                    "pattern": "^(/[^/]+)+$"
-                },
-                "server": {
-                    "type": "string",
-                    "oneOf": [
-                        { "format": "host-name" },
-                        { "format": "ipv4" },
-                        { "format": "ipv6" }
-                    ]
-                }
-            },
-            "required": [ "type", "server", "remotePath" ],
-            "additionalProperties": false
-        },
-        "tmpfs": {
-            "properties": {
-                "type": { "enum": [ "tmpfs" ] },
-                "sizeInMB": {
-                    "type": "integer",
-                    "minimum": 16,
-                    "maximum": 512
-                }
-            },
-            "required": [ "type", "sizeInMB" ],
-            "additionalProperties": false
-        }
-    }
-}
+Example: from http://json-schema.org/example2.html
 """
 
 STRUCT_MAP_DEFINITION_TEMPLATE = {
     "type": "object",
-    "properties": { },  # Fill with field definitions
+    "properties": {},  # Fill with field definitions
     "additionalProperties": True,
     "required": [],  # Fill with required field names
 }
 
-SCHEMA_TEMPLATE = dict(copy.deepcopy(STRUCT_MAP_DEFINITION_TEMPLATE).items() + {
+SCHEMA_TEMPLATE = dict(copy.deepcopy(
+    STRUCT_MAP_DEFINITION_TEMPLATE).items() + {
     "$schema": "http://json-schema.org/draft-04/schema#",
     "description": None,  # Replace with schema description
     "definitions": {}  # Fill struct and map type definitions
@@ -108,15 +25,16 @@ SCHEMA_TEMPLATE = dict(copy.deepcopy(STRUCT_MAP_DEFINITION_TEMPLATE).items() + {
 
 BASIC_FIELD_TEMPLATE = {
     "type": None  # Replace with basic type name, eg: "string"
-} 
+}
 
-LIST_TEMPLATE =  {
+LIST_TEMPLATE = {
     "type": "array",
     "items": {
         "type": None  # Replace with type reference to definition of elements
     },
     "uniqueItems": False  # set to True for sets
 }
+
 
 class JSONSchemaWriter(SchemaWriter):
 
@@ -125,15 +43,20 @@ class JSONSchemaWriter(SchemaWriter):
 
     def get_schema_ast(self, root_struct_class):
         # Collect struct dependencies of root struct (if any).
-        struct_dependencies = self.get_dependencies_for_one_struct(root_struct_class)
-        # Collect struct dependencies of manually added struct classes (if any).
+        struct_dependencies = self.get_dependencies_for_one_struct(
+            root_struct_class)
+        # Collect struct dependencies of manually added struct classes (if
+        # any).
         for struct_class in self.struct_classes:
-            self.get_dependencies_for_one_struct(struct_class, struct_dependencies)
+            self.get_dependencies_for_one_struct(
+                struct_class,
+                struct_dependencies)
         schema = copy.deepcopy(SCHEMA_TEMPLATE)
         schema['description'] = self.description
         # Note, the root class will be added to the definitions list
         # even if it is only used to desribe the top-level object.
-        schema['definitions'] = dict([self.get_struct_definition(s) for s in struct_dependencies])
+        schema['definitions'] = dict(
+            [self.get_struct_definition(s) for s in struct_dependencies])
         self.add_struct_properties(root_struct_class, schema)
         return schema
 
@@ -148,7 +71,8 @@ class JSONSchemaWriter(SchemaWriter):
             required = []
             for field in struct_class.get_field_definitions():
                 field_name = get_field_name(field)
-                struct_def['properties'][field_name] = self.get_type_definition(field.field_type)
+                struct_def['properties'][
+                    field_name] = self.get_type_definition(field.field_type)
                 if field.required:
                     required.append(field_name)
             struct_def['required'] = required
@@ -174,11 +98,14 @@ class JSONSchemaWriter(SchemaWriter):
             return self.define_map_field(type_definition)
         if isinstance(type_definition, types.List):
             return self.define_list(type_definition)
-        raise Exception("Cannot create schema for type %s" % str(type_definition))
+        raise Exception(
+            "Cannot create schema for type %s" %
+            str(type_definition))
 
     def define_basic_field(self, type_definition):
         field_def = copy.deepcopy(BASIC_FIELD_TEMPLATE)
-        field_def['type'] = type_definition.metadata.backend_data['json'].type_name
+        field_def['type'] = type_definition.metadata.backend_data[
+            'json'].type_name
         return field_def
 
     def define_enum_field(self, type_definition):
@@ -186,28 +113,36 @@ class JSONSchemaWriter(SchemaWriter):
         return field_def
 
     def reference_type(self, type_definition):
-        return { "$ref": "#/definitions/%s" % type_definition.python_type.get_name() }
+        return {
+            "$ref": "#/definitions/%s" %
+            type_definition.python_type.get_name()}
 
     def define_map_field(self, type_definition):
         # It's not possible to write a schema for a map type on jsonschema.
-        # Yes, I know it's crazy. I'm not the one who wanted to ditch Thrift for this crap! :)
+        # Yes, I know it's crazy. I'm not the one who wanted to ditch Thrift
+        # for this crap! :)
         field_def = copy.deepcopy(STRUCT_MAP_DEFINITION_TEMPLATE)
         del field_def['required']
         return field_def
 
     def define_list(self, type_definition):
         field_def = copy.deepcopy(LIST_TEMPLATE)
-        field_def['items'] = self.get_type_definition(type_definition.type_parameters[0])
+        field_def['items'] = self.get_type_definition(
+            type_definition.type_parameters[0])
         if isinstance(type_definition, types.Set):
             field_def['uniqueItems'] = True
         return field_def
 
     def get_dependencies_for_field_type(self, field_type, struct_dependencies):
         if isinstance(field_type, types.Struct):
-            self.get_dependencies_for_one_struct(field_type.python_type, struct_dependencies)
+            self.get_dependencies_for_one_struct(
+                field_type.python_type,
+                struct_dependencies)
         if field_type.type_parameters:
             for type_parameter in field_type.type_parameters:
-                self.get_dependencies_for_field_type(type_parameter, struct_dependencies)
+                self.get_dependencies_for_field_type(
+                    type_parameter,
+                    struct_dependencies)
 
     def get_dependencies_for_one_struct(self, cls, struct_dependencies=None):
         # It's possible that struct_class is actually an implementation class
@@ -217,11 +152,14 @@ class JSONSchemaWriter(SchemaWriter):
         if struct_class in struct_dependencies:
             # For recursive types, quit if type has already been encountered
             return struct_dependencies
-        # recursively traverse the fields of the struct, looking for new dependencies
+        # recursively traverse the fields of the struct, looking for new
+        # dependencies
         struct_dependencies.add(struct_class)
         if struct_class.get_field_definitions():
             for field in struct_class.get_field_definitions():
-                self.get_dependencies_for_field_type(field.field_type, struct_dependencies)
+                self.get_dependencies_for_field_type(
+                    field.field_type,
+                    struct_dependencies)
         return struct_dependencies
 
     def get_schema_text(self, *args, **kwargs):

@@ -13,7 +13,9 @@ class %(name)s(Unimodel):
 FIELD_TEMPLATE = "    %(name)s = Field(%(field_type)s%(field_kwargs)s)\n"
 EMPTY_CLASS_BODY = "    pass\n"
 
+
 class SchemaCompiler(object):
+
     """ Generates python code defining Unimodel classes
         based on the AST provided by the Schema generator. """
 
@@ -41,17 +43,18 @@ class SchemaCompiler(object):
             # not empty.
             'field_kwargs': field_kwargs}
         return source
- 
+
     def generate_struct_class(self, struct_def):
         name = struct_def.common.name
-        field_definitions = [self.get_field_declaration(f) for f in struct_def.fields]
+        field_definitions = [
+            self.get_field_declaration(f) for f in struct_def.fields]
         if not field_definitions:
             field_definitions = [EMPTY_CLASS_BODY]
         class_source = CLASS_TEMPLATE % {
-                'name': name,
-                'fields': "".join(field_definitions)}
+            'name': name,
+            'fields': "".join(field_definitions)}
         return class_source
-        
+
     def generate_model_classes(self):
         for struct_def in self.model_schema.structs:
             class_source = self.generate_struct_class(struct_def)
@@ -61,6 +64,7 @@ class SchemaCompiler(object):
         for src in self.compiled_structs.values():
             combined_source += src
         return combined_source
+
 
 def load_module(module_name, source):
     # from http://stackoverflow.com/a/3799609

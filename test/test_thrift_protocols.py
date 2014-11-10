@@ -3,6 +3,7 @@ from test.fixtures import NodeData, TreeNode, data
 from test.helpers import flatten
 from unimodel.backends.thrift.serializer import ThriftSerializer, ThriftProtocol
 
+
 class ThriftProtocolTestCase(TestCase):
 
     def test_thrift_serialize(self):
@@ -13,4 +14,8 @@ class ThriftProtocolTestCase(TestCase):
             d = serializer.deserialize(TreeNode, s)
             self.assertEquals(d.__class__, TreeNode)
             post_flattened = flatten(d)
-            self.assertEquals(pre_flattened, post_flattened, "%s serializes as expected" % protocol_name)
+            self.assertEquals(
+                pre_flattened,
+                post_flattened,
+                "%s serializes as expected" %
+                protocol_name)

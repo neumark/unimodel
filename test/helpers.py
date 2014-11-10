@@ -1,15 +1,17 @@
 def append_key(prefix, postfix):
     return "%s.%s" % (prefix, postfix)
 
+
 def flatten(obj):
     return sorted(_flatten(obj), key=lambda x: x[0])
 
+
 def _flatten(obj, key="", acc=None):
     acc = acc if acc is not None else []
-    if type(obj) == dict:
+    if isinstance(obj, dict):
         for k, v in obj.iteritems():
             _flatten(v, append_key(key, str(k)), acc)
-    elif type(obj) == list:
+    elif isinstance(obj, list):
         for i in xrange(0, len(obj)):
             _flatten(obj[i], append_key(key, str(i)), acc)
     elif hasattr(obj, 'thrift_spec'):
@@ -21,4 +23,3 @@ def _flatten(obj, key="", acc=None):
     else:
         acc.append((key, obj))
     return acc
-

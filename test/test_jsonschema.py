@@ -8,6 +8,7 @@ from unimodel.types import *
 import json
 import jsonschema
 
+
 class JSONSchemaTestCase(TestCase):
 
     def test_simple_struct(self):
@@ -15,11 +16,13 @@ class JSONSchemaTestCase(TestCase):
         class ExampleClass(Unimodel):
             u = Field(UTF8, required=True)
             s = Field(Binary)
-        
+
         schema_writer = JSONSchemaWriter()
         schema = schema_writer.get_schema_ast(ExampleClass)
         self.assertTrue('u' in schema['properties'])
-        self.assertEquals(schema['definitions']['ExampleClass']['required'], ['u'])
+        self.assertEquals(
+            schema['definitions']['ExampleClass']['required'],
+            ['u'])
         self.assertTrue('s' in schema['properties'])
 
     def test_recursive_struct(self):
@@ -30,15 +33,19 @@ class JSONSchemaTestCase(TestCase):
         self.assertTrue('NodeData' in schema['definitions'])
         # check type of treenode's children
         self.assertEquals(schema['properties']['children']['type'], "array")
-        self.assertEquals(schema['properties']['children']['items'].keys(), ["$ref"])
+        self.assertEquals(
+            schema['properties']['children']['items'].keys(),
+            ["$ref"])
 
     def test_recursive_struct(self):
         """ serialize unicode and binary data """
         from unimodel.backends.json.type_data import JSONFieldData
 
         NAME = "/-/"
+
         class A(Unimodel):
-            a = Field(Map(UTF8, Int), metadata=Metadata(backend_data={'json': JSONFieldData(property_name=NAME)}))
+            a = Field(Map(UTF8, Int), metadata=Metadata(
+                backend_data={'json': JSONFieldData(property_name=NAME)}))
 
         schema_writer = JSONSchemaWriter()
         schema = schema_writer.get_schema_ast(A)
@@ -46,7 +53,7 @@ class JSONSchemaTestCase(TestCase):
         self.assertEquals(schema['properties'].keys(), [NAME])
 
     def test_validate_recursive_schema(self):
-        # based on http://sacharya.com/validating-json-using-python-jsonschema/ 
+        # based on http://sacharya.com/validating-json-using-python-jsonschema/
         schema_writer = JSONSchemaWriter()
         schema = schema_writer.get_schema_ast(TreeNode)
         serializer = JSONSerializer()
@@ -54,24 +61,24 @@ class JSONSchemaTestCase(TestCase):
         jsonschema.validate(json_data, schema)
 
     def test_validate_all_types(self):
-        # based on http://sacharya.com/validating-json-using-python-jsonschema/ 
+        # based on http://sacharya.com/validating-json-using-python-jsonschema/
         schema_writer = JSONSchemaWriter()
         schema = schema_writer.get_schema_ast(AllTypes)
         serializer = JSONSerializer()
         all_types = AllTypes(
-            f_struct = NodeData(),
-            f_union = NodeData(),
-            f_utf8 = "asdf",
-            f_binary = bin(173),
-            f_int64 = 2**40,
-            f_int32 = 2**28,
-            f_int16 = 2**12,
-            f_int8 = 4,
-            f_double = 3.14,
-            f_enum = 3,
-            f_list = [1,2,3,4],
-            f_set = set([1,2,3]),
-            f_map = {"a":1}
+            f_struct=NodeData(),
+            f_union=NodeData(),
+            f_utf8="asdf",
+            f_binary=bin(173),
+            f_int64=2 ** 40,
+            f_int32=2 ** 28,
+            f_int16=2 ** 12,
+            f_int8=4,
+            f_double=3.14,
+            f_enum=3,
+            f_list=[1, 2, 3, 4],
+            f_set=set([1, 2, 3]),
+            f_map={"a": 1}
         )
         json_data = json.loads(serializer.serialize(all_types))
         jsonschema.validate(json_data, schema)

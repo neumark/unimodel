@@ -2,6 +2,8 @@ import sys
 import copy
 from unimodel.metadata import Metadata
 from unimodel.validation import ValidationException
+
+
 class FieldFactory(object):
 
     def field_dict_to_field_list(self, field_dict):
@@ -30,7 +32,7 @@ class FieldFactory(object):
         taken_field_ids = set([f.field_id for f in fields])
         next_field_id = 1
         # sort fields by creation count
-        fields = sorted(fields, key=lambda f:f.creation_count)
+        fields = sorted(fields, key=lambda f: f.creation_count)
         for field in fields:
             if field.field_id < 1:
                 while next_field_id in taken_field_ids:
@@ -49,24 +51,27 @@ class FieldFactory(object):
         fields = self.field_dict_to_field_list(field_dict or {})
         self.replace_default_field_ids(fields)
         attr_dict = {
-            '_fields_by_id': dict([(field.field_id, field) for field in fields]),
-            '_fields_by_name': dict([(field.field_name, field) for field in fields])}
+            '_fields_by_id': dict(
+                [(field.field_id, field) for field in fields]),
+            '_fields_by_name': dict(
+                [(field.field_name, field) for field in fields])}
         return attr_dict
+
 
 class Field(object):
     _field_creation_counter = 0
 
     def __init__(self,
-            field_type,
-            field_name=None,
-            field_id=-1,
-            default=None,
-            required=False,
-            metadata=None):
+                 field_type,
+                 field_name=None,
+                 field_id=-1,
+                 default=None,
+                 required=False,
+                 metadata=None):
         self.creation_count = Field._field_creation_counter
         Field._field_creation_counter += 1
         # If they left off the parenthesis, fix it.
-        if type(field_type) == type:
+        if isinstance(field_type, type):
             self.field_type = field_type()
         else:
             self.field_type = field_type
@@ -84,10 +89,14 @@ class Field(object):
             for validator in self.metadata.validators:
                 validator.validate(value)
 
+
 class UnimodelMetaclass(type):
+
     def __init__(cls, name, bases, dct):
         super(UnimodelMetaclass, cls).__init__(name, bases, dct)
-        field_dict = dict([(k,v) for k,v in dct.iteritems() if isinstance(v, Field)])
+        field_dict = dict([(k, v)
+                           for k, v in dct.iteritems() if isinstance(
+                               v, Field)])
         setattr(cls, "_field_dict", field_dict)
         fields = {}
         # for each base class, add it's _field_dict to fields
@@ -97,6 +106,7 @@ class UnimodelMetaclass(type):
         fields.update(field_dict)
         field_factory = FieldFactory()
         field_factory.add_fields(cls, fields)
+
 
 class Unimodel(object):
 
@@ -110,7 +120,7 @@ class Unimodel(object):
 
     def __repr__(self):
         L = ['%s=%r' % (self._fields_by_id[field_id].field_name, value)
-            for field_id, value in self._model_data.iteritems()]
+             for field_id, value in self._model_data.iteritems()]
         return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
 
     def write(self, protocol):
@@ -136,20 +146,23 @@ class Unimodel(object):
         return cls._fields_by_name.values()
 
     def __getitem__(self, field_name):
-        return self._model_data.get(self._field_name_to_field_id(field_name), None)
+        return self._model_data.get(
+            self._field_name_to_field_id(field_name),
+            None)
 
     def __setitem__(self, field_name, value):
         self._model_data[self._field_name_to_field_id(field_name)] = value
 
     def __delitem__(self, field_name):
         self._model_data.__delitem__(
-                self._field_name_to_field_id(field_name))
+            self._field_name_to_field_id(field_name))
 
     def __iter__(self):
         return self.iterkeys()
 
     def items(self):
-        return iter([(self._fields_by_id[i[0]].field_name, i[1]) for i in self._model_data.items()])
+        return iter([(self._fields_by_id[i[0]].field_name, i[1])
+                     for i in self._model_data.items()])
 
     def __getattribute__(self, name):
         # check in model_data first
@@ -173,7 +186,9 @@ class Unimodel(object):
         super(Unimodel, self).__setattr__(name, value)
 
     def __eq__(self, other):
-        return isinstance(other, self.__class__) and self._model_data == other._model_data
+        return isinstance(
+            other,
+            self.__class__) and self._model_data == other._model_data
 
     def __ne__(self, other):
         return not (self == other)
@@ -189,7 +204,9 @@ class Unimodel(object):
         for k, v in self._fields_by_name.iteritems():
             if self._model_data.get(v.field_id, None) is None:
                 if v.required:
-                    raise ValidationException("Required field %s (id %s) not set" % (k, v.field_id))
+                    raise ValidationException(
+                        "Required field %s (id %s) not set" %
+                        (k, v.field_id))
             else:
                 # Run any field validators
                 v.field_type.validate(self._model_data.get(v.field_id, None))
@@ -202,6 +219,7 @@ class Unimodel(object):
     def get_name(cls):
         return cls.__name__
 
+
 class UnimodelUnion(Unimodel):
 
     def current_field(self):
@@ -213,7 +231,9 @@ class UnimodelUnion(Unimodel):
         if not set_fields:
             return None
         if len(set_fields) > 1:
-            raise Exception("Union has too many set fields: %s" % str(set_fields))
+            raise Exception(
+                "Union has too many set fields: %s" %
+                str(set_fields))
         return set_fields[0]
 
     def current_value(self):
@@ -221,6 +241,7 @@ class UnimodelUnion(Unimodel):
         if not current_field:
             return None
         return self[current_field_name]
+
 
 class ModelRegistry(object):
 

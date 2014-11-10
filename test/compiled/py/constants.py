@@ -7,41 +7,41 @@
 #
 
 from thrift.Thrift import TType, TMessageType, TException, TApplicationException
-from ttypes import *
+from .ttypes import *
 
 default_blacklist = [
-  {
-    "mediaservice" : [
-      SomeStruct(**{
-        "company" : "reuse",
-        "ipaddress" : "127.0.0.1",
-        "timestamp" : 0,
-        "notified" : False,
-      }),
-      SomeStruct(**{
-        "company" : "dynapps",
-        "ipaddress" : "127.0.0.1",
-        "timestamp" : 1000,
-        "notified" : True,
-      }),
-    ],
-    "presentationservice" : [
-      SomeStruct(**{
-        "company" : "dropbox",
-        "ipaddress" : "158.3.4.5",
-        "timestamp" : 0,
-        "notified" : True,
-      }),
-    ],
-  },
-  {
-    "storageproxy" : [
-      SomeStruct(**{
-        "company" : "keynote",
-        "ipaddress" : "148.23.45.5",
-        "timestamp" : 2342342,
-        "notified" : False,
-      }),
-    ],
-  },
+    {
+        "mediaservice": [
+            SomeStruct(**{
+                "company": "reuse",
+                "ipaddress": "127.0.0.1",
+                "timestamp": 0,
+                "notified": False,
+            }),
+            SomeStruct(**{
+                "company": "dynapps",
+                "ipaddress": "127.0.0.1",
+                "timestamp": 1000,
+                "notified": True,
+            }),
+        ],
+        "presentationservice": [
+            SomeStruct(**{
+                "company": "dropbox",
+                "ipaddress": "158.3.4.5",
+                "timestamp": 0,
+                "notified": True,
+            }),
+        ],
+    },
+    {
+        "storageproxy": [
+            SomeStruct(**{
+                "company": "keynote",
+                "ipaddress": "148.23.45.5",
+                "timestamp": 2342342,
+                "notified": False,
+            }),
+        ],
+    },
 ]

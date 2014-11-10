@@ -9,6 +9,7 @@ from test.fixtures import TreeNode, AllTypes, NodeData, data
 from unimodel.model import Unimodel, Field
 from unimodel.codegen import SchemaCompiler, load_module
 
+
 class JSONSchemaGenerate(TestCase):
 
     def test_simple_struct(self):
@@ -16,8 +17,9 @@ class JSONSchemaGenerate(TestCase):
         schema = schema_writer.get_schema_ast(TreeNode)
         generator = JSONSchemaModelGenerator('untitled', schema)
         serializer = JSONSerializer()
-        json_data = json.loads(serializer.serialize(generator.generate_model_schema()))
-
+        json_data = json.loads(
+            serializer.serialize(
+                generator.generate_model_schema()))
 
     def test_simple_struct(self):
         with open("/Users/neumark/git/swagger-spec/schemas/v2.0/schema.json", "r") as f:
@@ -26,9 +28,9 @@ class JSONSchemaGenerate(TestCase):
         generator = JSONSchemaModelGenerator(schema_name, schema)
         serializer = JSONSerializer()
         model_schema = generator.generate_model_schema()
-        
+
         #header = [s for s in model_schema.structs if s.common.name == 'header'][0]
-        #print [f for f in header.fields if f.common.name == 'items'][0]
+        # print [f for f in header.fields if f.common.name == 'items'][0]
         model_schema.validate()
         return
         json_data = json.loads(serializer.serialize(model_schema))

@@ -8,162 +8,194 @@
 
 from thrift.Thrift import TType, TMessageType, TException, TApplicationException
 import compiled.py.Base
-from ttypes import *
+from .ttypes import *
 from thrift.Thrift import TProcessor
 from thrift.protocol.TBase import TBase, TExceptionBase
 
 
 class Iface(compiled.py.Base.Iface):
-  def get_size(self, arg):
-    """
-    Parameters:
-     - arg
-    """
-    pass
+
+    def get_size(self, arg):
+        """
+        Parameters:
+         - arg
+        """
+        pass
 
 
 class Client(compiled.py.Base.Client, Iface):
-  def __init__(self, iprot, oprot=None):
-    compiled.py.Base.Client.__init__(self, iprot, oprot)
 
-  def get_size(self, arg):
-    """
-    Parameters:
-     - arg
-    """
-    self.send_get_size(arg)
-    return self.recv_get_size()
+    def __init__(self, iprot, oprot=None):
+        compiled.py.Base.Client.__init__(self, iprot, oprot)
 
-  def send_get_size(self, arg):
-    self._oprot.writeMessageBegin('get_size', TMessageType.CALL, self._seqid)
-    args = get_size_args()
-    args.arg = arg
-    args.write(self._oprot)
-    self._oprot.writeMessageEnd()
-    self._oprot.trans.flush()
+    def get_size(self, arg):
+        """
+        Parameters:
+         - arg
+        """
+        self.send_get_size(arg)
+        return self.recv_get_size()
 
-  def recv_get_size(self):
-    iprot = self._iprot
-    (fname, mtype, rseqid) = iprot.readMessageBegin()
-    if mtype == TMessageType.EXCEPTION:
-      x = TApplicationException()
-      x.read(iprot)
-      iprot.readMessageEnd()
-      raise x
-    result = get_size_result()
-    result.read(iprot)
-    iprot.readMessageEnd()
-    if result.success is not None:
-      return result.success
-    if result.ex1 is not None:
-      raise result.ex1
-    if result.br is not None:
-      raise result.br
-    raise TApplicationException(TApplicationException.MISSING_RESULT, "get_size failed: unknown result");
+    def send_get_size(self, arg):
+        self._oprot.writeMessageBegin(
+            'get_size',
+            TMessageType.CALL,
+            self._seqid)
+        args = get_size_args()
+        args.arg = arg
+        args.write(self._oprot)
+        self._oprot.writeMessageEnd()
+        self._oprot.trans.flush()
+
+    def recv_get_size(self):
+        iprot = self._iprot
+        (fname, mtype, rseqid) = iprot.readMessageBegin()
+        if mtype == TMessageType.EXCEPTION:
+            x = TApplicationException()
+            x.read(iprot)
+            iprot.readMessageEnd()
+            raise x
+        result = get_size_result()
+        result.read(iprot)
+        iprot.readMessageEnd()
+        if result.success is not None:
+            return result.success
+        if result.ex1 is not None:
+            raise result.ex1
+        if result.br is not None:
+            raise result.br
+        raise TApplicationException(
+            TApplicationException.MISSING_RESULT,
+            "get_size failed: unknown result")
 
 
 class Processor(compiled.py.Base.Processor, Iface, TProcessor):
-  def __init__(self, handler):
-    compiled.py.Base.Processor.__init__(self, handler)
-    self._processMap["get_size"] = Processor.process_get_size
 
-  def process(self, iprot, oprot):
-    (name, type, seqid) = iprot.readMessageBegin()
-    if name not in self._processMap:
-      iprot.skip(TType.STRUCT)
-      iprot.readMessageEnd()
-      x = TApplicationException(TApplicationException.UNKNOWN_METHOD, 'Unknown function %s' % (name))
-      oprot.writeMessageBegin(name, TMessageType.EXCEPTION, seqid)
-      x.write(oprot)
-      oprot.writeMessageEnd()
-      oprot.trans.flush()
-      return
-    else:
-      self._processMap[name](self, seqid, iprot, oprot)
-    return True
+    def __init__(self, handler):
+        compiled.py.Base.Processor.__init__(self, handler)
+        self._processMap["get_size"] = Processor.process_get_size
 
-  def process_get_size(self, seqid, iprot, oprot):
-    args = get_size_args()
-    args.read(iprot)
-    iprot.readMessageEnd()
-    result = get_size_result()
-    try:
-      result.success = self._handler.get_size(args.arg)
-    except InvalidOperation, ex1:
-      result.ex1 = ex1
-    except BadRequest, br:
-      result.br = br
-    oprot.writeMessageBegin("get_size", TMessageType.REPLY, seqid)
-    result.write(oprot)
-    oprot.writeMessageEnd()
-    oprot.trans.flush()
+    def process(self, iprot, oprot):
+        (name, type, seqid) = iprot.readMessageBegin()
+        if name not in self._processMap:
+            iprot.skip(TType.STRUCT)
+            iprot.readMessageEnd()
+            x = TApplicationException(
+                TApplicationException.UNKNOWN_METHOD,
+                'Unknown function %s' %
+                (name))
+            oprot.writeMessageBegin(name, TMessageType.EXCEPTION, seqid)
+            x.write(oprot)
+            oprot.writeMessageEnd()
+            oprot.trans.flush()
+            return
+        else:
+            self._processMap[name](self, seqid, iprot, oprot)
+        return True
+
+    def process_get_size(self, seqid, iprot, oprot):
+        args = get_size_args()
+        args.read(iprot)
+        iprot.readMessageEnd()
+        result = get_size_result()
+        try:
+            result.success = self._handler.get_size(args.arg)
+        except InvalidOperation as ex1:
+            result.ex1 = ex1
+        except BadRequest as br:
+            result.br = br
+        oprot.writeMessageBegin("get_size", TMessageType.REPLY, seqid)
+        result.write(oprot)
+        oprot.writeMessageEnd()
+        oprot.trans.flush()
 
 
 # HELPER FUNCTIONS AND STRUCTURES
 
 class get_size_args(TBase):
-  """
-  Attributes:
-   - arg
-  """
 
-  thrift_spec = (
-    None, # 0
-    (1, TType.STRUCT, 'arg', (A, A.thrift_spec), None, ), # 1
-  )
+    """
+    Attributes:
+     - arg
+    """
 
-  def __init__(self, arg=None,):
-    self.arg = arg
+    thrift_spec = (
+        None,  # 0
+        (1, TType.STRUCT, 'arg', (A, A.thrift_spec), None, ),  # 1
+    )
 
-  def __hash__(self):
-    value = 17
-    value = (value * 31) ^ hash(self.arg)
-    return value
+    def __init__(self, arg=None,):
+        self.arg = arg
 
-  def __repr__(self):
-    L = ['%s=%r' % (key, value)
-      for key, value in self.__dict__.iteritems()]
-    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+    def __hash__(self):
+        value = 17
+        value = (value * 31) ^ hash(self.arg)
+        return value
 
-  def __eq__(self, other):
-    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.iteritems()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
 
-  def __ne__(self, other):
-    return not (self == other)
+    def __eq__(self, other):
+        return isinstance(
+            other,
+            self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)
+
 
 class get_size_result(TBase):
-  """
-  Attributes:
-   - success
-   - ex1
-   - br
-  """
 
-  thrift_spec = (
-    (0, TType.I32, 'success', None, None, ), # 0
-    (1, TType.STRUCT, 'ex1', (InvalidOperation, InvalidOperation.thrift_spec), None, ), # 1
-    (2, TType.STRUCT, 'br', (BadRequest, BadRequest.thrift_spec), None, ), # 2
-  )
+    """
+    Attributes:
+     - success
+     - ex1
+     - br
+    """
 
-  def __init__(self, success=None, ex1=None, br=None,):
-    self.success = success
-    self.ex1 = ex1
-    self.br = br
+    thrift_spec = (
+        (0, TType.I32, 'success', None, None, ),  # 0
+        (1,
+         TType.STRUCT,
+         'ex1',
+         (InvalidOperation,
+          InvalidOperation.thrift_spec),
+            None,
+         ),
+        # 1
+        (2,
+         TType.STRUCT,
+         'br',
+         (BadRequest,
+          BadRequest.thrift_spec),
+            None,
+         ),
+        # 2
+    )
 
-  def __hash__(self):
-    value = 17
-    value = (value * 31) ^ hash(self.success)
-    value = (value * 31) ^ hash(self.ex1)
-    value = (value * 31) ^ hash(self.br)
-    return value
+    def __init__(self, success=None, ex1=None, br=None,):
+        self.success = success
+        self.ex1 = ex1
+        self.br = br
 
-  def __repr__(self):
-    L = ['%s=%r' % (key, value)
-      for key, value in self.__dict__.iteritems()]
-    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+    def __hash__(self):
+        value = 17
+        value = (value * 31) ^ hash(self.success)
+        value = (value * 31) ^ hash(self.ex1)
+        value = (value * 31) ^ hash(self.br)
+        return value
 
-  def __eq__(self, other):
-    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.iteritems()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
 
-  def __ne__(self, other):
-    return not (self == other)
+    def __eq__(self, other):
+        return isinstance(
+            other,
+            self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)

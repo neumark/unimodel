@@ -2,12 +2,13 @@ from unittest import TestCase
 from unimodel.model import Unimodel, Field
 from unimodel import types
 
+
 class ModelInheritanceTestCase(TestCase):
 
     def test_simple_inheritance(self):
         class Base(Unimodel):
             a = Field(types.UTF8)
-    
+
         class Child(Base):
             b = Field(types.Int)
 

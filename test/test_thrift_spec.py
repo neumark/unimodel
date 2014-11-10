@@ -4,7 +4,9 @@ from unimodel.model import Unimodel, Field
 from unimodel import types
 from unimodel.backends.thrift.serializer import ThriftSpecFactory
 
+
 class ThriftSpecTestCase(TestCase):
+
     """
 
     struct A {
@@ -39,30 +41,36 @@ class ThriftSpecTestCase(TestCase):
         return self.spec_factory.get_spec_for_field(field)
 
     def test_simple_field(self):
-        FIELD_TYPE=types.Int()
-        FIELD_NAME="apple"
-        FIELD_ID=1
-        DEFAULT="1"
+        FIELD_TYPE = types.Int()
+        FIELD_NAME = "apple"
+        FIELD_ID = 1
+        DEFAULT = "1"
         field = Field(
             field_type=FIELD_TYPE,
             field_name=FIELD_NAME,
             field_id=FIELD_ID,
             default=DEFAULT)
-        self.assertEquals(self.get_field_spec(field), 
-                (FIELD_ID, FIELD_TYPE.metadata.backend_data['thrift'].type_id, FIELD_NAME, None, DEFAULT))
+        self.assertEquals(
+            self.get_field_spec(field),
+            (FIELD_ID,
+             FIELD_TYPE.metadata.backend_data['thrift'].type_id,
+             FIELD_NAME,
+             None,
+             DEFAULT))
 
     def test_list_field(self):
         field = Field(types.List(types.Int))
-        self.assertEquals(self.get_field_spec(field), 
-            (-1, TType.LIST, None, [TType.I64, None], None))
+        self.assertEquals(self.get_field_spec(field),
+                          (-1, TType.LIST, None, [TType.I64, None], None))
 
     def test_map_field(self):
         field = Field(types.Map(types.Int, types.UTF8))
-        self.assertEquals(self.get_field_spec(field), 
-            (-1, TType.MAP, None, [TType.I64, None, TType.STRING, None], None))
+        self.assertEquals(self.get_field_spec(
+            field), (-1, TType.MAP, None, [TType.I64, None, TType.STRING, None], None))
 
     def test_struct_field(self):
         field = Field(types.Int)
+
         class F(Unimodel):
             f = field
         struct_spec = self.spec_factory.get_spec_for_struct(F)

@@ -7,13 +7,14 @@ import json
 from unimodel.model import ModelRegistry
 from unimodel.backends.json.serializer import JSONSerializer, JSONValidationException
 
+
 class ModelRegistryTestCase(TestCase):
+
     """ Demonstrates the use of the model registry.
         The idea is that a bare-bones "interface class"
         (one presumably generated or constructed at runtime
         from some sort of schema) can be swapped out with an
         "implementation class" with a rich set of model methods """
-        
 
     def test_implementation_class(self):
         """ serialize unicode and binary data """
@@ -26,6 +27,7 @@ class ModelRegistryTestCase(TestCase):
             nested = Field(Struct(NestedIface))
 
         class OuterImpl(OuterIface):
+
             def useful_method(self):
                 return len(self.u or '') + len(self.s or '')
 

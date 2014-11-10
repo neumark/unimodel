@@ -12,11 +12,16 @@ from unimodel.backends.json.type_data import JSONFieldData
 from unimodel.metadata import Metadata
 import inspect
 
+
 def get_type_id_to_name_dict():
     type_dict = {}
     for type_name in dir(types):
         t = getattr(types, type_name)
-        if inspect.isclass(t) and issubclass(t, types.FieldType) and hasattr(t, 'type_id'):
+        if inspect.isclass(t) and issubclass(
+                t,
+                types.FieldType) and hasattr(
+                t,
+                'type_id'):
             type_dict[t.type_id] = t.__name__.lower()
     return type_dict
 
@@ -25,10 +30,11 @@ class SchemaObjectMetadata(Unimodel):
     annotations = Field(types.Map(types.UTF8, types.UTF8))
     # TODO: validators
     backend_data = Field(
-                    types.Map(
-                        types.UTF8,  # Key is the name of the backend, eg: 'thrift'
-                        # data for each backend should be represented as a simple dict
-                        types.Map(types.UTF8, types.UTF8)))
+        types.Map(
+            types.UTF8,  # Key is the name of the backend, eg: 'thrift'
+            # data for each backend should be represented as a simple dict
+            types.Map(types.UTF8, types.UTF8)))
+
 
 class SchemaObject(Unimodel):
     name = Field(types.UTF8, required=True)
@@ -43,13 +49,18 @@ schema_object_field = Field(
 type_id_enum = types.Enum(get_type_id_to_name_dict())
 
 # TypeDef is recursive because of ParametricType
+
+
 class TypeDef(Unimodel):
     pass
 
 # List, Set, Map, Tuple
+
+
 class ParametricType(Unimodel):
     type_id = Field(type_id_enum, required=True)
     type_parameters = Field(types.List(types.Struct(TypeDef)), required=True)
+
 
 class TypeClass(UnimodelUnion):
     primitive_type_id = Field(type_id_enum)
@@ -62,11 +73,13 @@ field_factory.add_fields(TypeDef, {
     'metadata': Field(types.Struct(SchemaObjectMetadata)),
     'type_class': Field(types.Struct(TypeClass), required=True)})
 
+
 class Literal(UnimodelUnion):
     integer = Field(types.Int)
     double = Field(types.Double)
     string = Field(types.UTF8)
     metadata = Field(types.Struct(SchemaObjectMetadata))
+
 
 class FieldDef(Unimodel):
     common = schema_object_field
@@ -74,10 +87,12 @@ class FieldDef(Unimodel):
     required = Field(types.Bool, default=False)
     default = Field(types.Struct(Literal))
 
+
 class StructDef(Unimodel):
     common = schema_object_field
     is_union = Field(types.Bool, default=False)
     fields = Field(types.List(types.Struct(FieldDef)), required=True)
+
 
 class ModelSchema(Unimodel):
     common = schema_object_field

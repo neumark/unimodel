@@ -12,272 +12,347 @@ from thrift.protocol.TBase import TBase, TExceptionBase
 
 
 class T(TBase):
-  ADD = 1
-  SUB = 2
+    ADD = 1
+    SUB = 2
 
-  _VALUES_TO_NAMES = {
-    1: "ADD",
-    2: "SUB",
-  }
+    _VALUES_TO_NAMES = {
+        1: "ADD",
+        2: "SUB",
+    }
 
-  _NAMES_TO_VALUES = {
-    "ADD": 1,
-    "SUB": 2,
-  }
+    _NAMES_TO_VALUES = {
+        "ADD": 1,
+        "SUB": 2,
+    }
+
 
 class T2(TBase):
-  add = 1
-  sub = 2
+    add = 1
+    sub = 2
 
-  _VALUES_TO_NAMES = {
-    1: "add",
-    2: "sub",
-  }
+    _VALUES_TO_NAMES = {
+        1: "add",
+        2: "sub",
+    }
 
-  _NAMES_TO_VALUES = {
-    "add": 1,
-    "sub": 2,
-  }
+    _NAMES_TO_VALUES = {
+        "add": 1,
+        "sub": 2,
+    }
 
 
 class SomeStruct(TBase):
-  """
-  Attributes:
-   - company
-   - ipaddress
-   - timestamp
-   - notified
-  """
 
-  thrift_spec = (
-    None, # 0
-    (1, TType.STRING, 'company', None, None, ), # 1
-    (2, TType.STRING, 'ipaddress', None, None, ), # 2
-    (3, TType.I64, 'timestamp', None, None, ), # 3
-    (4, TType.BOOL, 'notified', None, None, ), # 4
-  )
+    """
+    Attributes:
+     - company
+     - ipaddress
+     - timestamp
+     - notified
+    """
 
-  def __init__(self, company=None, ipaddress=None, timestamp=None, notified=None,):
-    self.company = company
-    self.ipaddress = ipaddress
-    self.timestamp = timestamp
-    self.notified = notified
+    thrift_spec = (
+        None,  # 0
+        (1, TType.STRING, 'company', None, None, ),  # 1
+        (2, TType.STRING, 'ipaddress', None, None, ),  # 2
+        (3, TType.I64, 'timestamp', None, None, ),  # 3
+        (4, TType.BOOL, 'notified', None, None, ),  # 4
+    )
 
-  def __hash__(self):
-    value = 17
-    value = (value * 31) ^ hash(self.company)
-    value = (value * 31) ^ hash(self.ipaddress)
-    value = (value * 31) ^ hash(self.timestamp)
-    value = (value * 31) ^ hash(self.notified)
-    return value
+    def __init__(
+        self,
+        company=None,
+        ipaddress=None,
+        timestamp=None,
+        notified=None,
+    ):
+        self.company = company
+        self.ipaddress = ipaddress
+        self.timestamp = timestamp
+        self.notified = notified
 
-  def __repr__(self):
-    L = ['%s=%r' % (key, value)
-      for key, value in self.__dict__.iteritems()]
-    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+    def __hash__(self):
+        value = 17
+        value = (value * 31) ^ hash(self.company)
+        value = (value * 31) ^ hash(self.ipaddress)
+        value = (value * 31) ^ hash(self.timestamp)
+        value = (value * 31) ^ hash(self.notified)
+        return value
 
-  def __eq__(self, other):
-    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.iteritems()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
 
-  def __ne__(self, other):
-    return not (self == other)
+    def __eq__(self, other):
+        return isinstance(
+            other,
+            self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)
+
 
 class A(TBase):
-  """
-  Attributes:
-   - a
-   - c
-   - d
-   - e
-   - f
-   - g
-   - h
-  """
 
-  thrift_spec = (
-    None, # 0
-    (1, TType.I64, 'a', None, None, ), # 1
-    (2, TType.STRUCT, 'c', (SomeStruct, SomeStruct.thrift_spec), None, ), # 2
-    (3, TType.I64, 'd', None, 6, ), # 3
-    (4, TType.LIST, 'e', (TType.STRING,None), None, ), # 4
-    (5, TType.LIST, 'f', (TType.STRUCT,(SomeStruct, SomeStruct.thrift_spec)), None, ), # 5
-    (6, TType.MAP, 'g', (TType.I64,None,TType.STRING,None), None, ), # 6
-    (7, TType.LIST, 'h', (TType.MAP,(TType.I64,None,TType.LIST,(TType.STRUCT,(SomeStruct, SomeStruct.thrift_spec)))), None, ), # 7
-  )
+    """
+    Attributes:
+     - a
+     - c
+     - d
+     - e
+     - f
+     - g
+     - h
+    """
 
-  def __init__(self, a=None, c=None, d=thrift_spec[3][4], e=None, f=None, g=None, h=None,):
-    self.a = a
-    self.c = c
-    self.d = d
-    self.e = e
-    self.f = f
-    self.g = g
-    self.h = h
+    thrift_spec = (
+        None,  # 0
+        (1, TType.I64, 'a', None, None, ),  # 1
+        (2,
+         TType.STRUCT,
+         'c',
+         (SomeStruct,
+          SomeStruct.thrift_spec),
+            None,
+         ),
+        # 2
+        (3, TType.I64, 'd', None, 6, ),  # 3
+        (4, TType.LIST, 'e', (TType.STRING, None), None, ),  # 4
+        (5,
+         TType.LIST,
+         'f',
+         (TType.STRUCT,
+          (SomeStruct,
+           SomeStruct.thrift_spec)),
+            None,
+         ),
+        # 5
+        (6,
+         TType.MAP,
+         'g',
+         (TType.I64,
+          None,
+          TType.STRING,
+          None),
+            None,
+         ),
+        # 6
+        (7,
+         TType.LIST,
+         'h',
+         (TType.MAP,
+          (TType.I64,
+           None,
+           TType.LIST,
+           (TType.STRUCT,
+            (SomeStruct,
+             SomeStruct.thrift_spec)))),
+            None,
+         ),
+        # 7
+    )
 
-  def __hash__(self):
-    value = 17
-    value = (value * 31) ^ hash(self.a)
-    value = (value * 31) ^ hash(self.c)
-    value = (value * 31) ^ hash(self.d)
-    value = (value * 31) ^ hash(self.e)
-    value = (value * 31) ^ hash(self.f)
-    value = (value * 31) ^ hash(self.g)
-    value = (value * 31) ^ hash(self.h)
-    return value
+    def __init__(
+        self,
+        a=None,
+        c=None,
+        d=thrift_spec[3][4],
+        e=None,
+        f=None,
+        g=None,
+        h=None,
+    ):
+        self.a = a
+        self.c = c
+        self.d = d
+        self.e = e
+        self.f = f
+        self.g = g
+        self.h = h
 
-  def __repr__(self):
-    L = ['%s=%r' % (key, value)
-      for key, value in self.__dict__.iteritems()]
-    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+    def __hash__(self):
+        value = 17
+        value = (value * 31) ^ hash(self.a)
+        value = (value * 31) ^ hash(self.c)
+        value = (value * 31) ^ hash(self.d)
+        value = (value * 31) ^ hash(self.e)
+        value = (value * 31) ^ hash(self.f)
+        value = (value * 31) ^ hash(self.g)
+        value = (value * 31) ^ hash(self.h)
+        return value
 
-  def __eq__(self, other):
-    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.iteritems()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
 
-  def __ne__(self, other):
-    return not (self == other)
+    def __eq__(self, other):
+        return isinstance(
+            other,
+            self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)
+
 
 class B(TBase):
-  """
-  Attributes:
-   - a
-   - b
-  """
 
-  thrift_spec = (
-    None, # 0
-    (1, TType.I64, 'a', None, None, ), # 1
-    (2, TType.STRING, 'b', None, None, ), # 2
-  )
+    """
+    Attributes:
+     - a
+     - b
+    """
 
-  def __init__(self, a=None, b=None,):
-    self.a = a
-    self.b = b
+    thrift_spec = (
+        None,  # 0
+        (1, TType.I64, 'a', None, None, ),  # 1
+        (2, TType.STRING, 'b', None, None, ),  # 2
+    )
 
-  def __hash__(self):
-    value = 17
-    value = (value * 31) ^ hash(self.a)
-    value = (value * 31) ^ hash(self.b)
-    return value
+    def __init__(self, a=None, b=None,):
+        self.a = a
+        self.b = b
 
-  def __repr__(self):
-    L = ['%s=%r' % (key, value)
-      for key, value in self.__dict__.iteritems()]
-    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+    def __hash__(self):
+        value = 17
+        value = (value * 31) ^ hash(self.a)
+        value = (value * 31) ^ hash(self.b)
+        return value
 
-  def __eq__(self, other):
-    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.iteritems()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
 
-  def __ne__(self, other):
-    return not (self == other)
+    def __eq__(self, other):
+        return isinstance(
+            other,
+            self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)
+
 
 class C(TBase):
-  """
-  Attributes:
-   - b
-   - t
-   - s
-  """
 
-  thrift_spec = (
-    None, # 0
-    (1, TType.STRUCT, 'b', (B, B.thrift_spec), None, ), # 1
-    (2, TType.I32, 't', None, None, ), # 2
-    (3, TType.STRING, 's', None, None, ), # 3
-  )
+    """
+    Attributes:
+     - b
+     - t
+     - s
+    """
 
-  def __init__(self, b=None, t=None, s=None,):
-    self.b = b
-    self.t = t
-    self.s = s
+    thrift_spec = (
+        None,  # 0
+        (1, TType.STRUCT, 'b', (B, B.thrift_spec), None, ),  # 1
+        (2, TType.I32, 't', None, None, ),  # 2
+        (3, TType.STRING, 's', None, None, ),  # 3
+    )
 
-  def __hash__(self):
-    value = 17
-    value = (value * 31) ^ hash(self.b)
-    value = (value * 31) ^ hash(self.t)
-    value = (value * 31) ^ hash(self.s)
-    return value
+    def __init__(self, b=None, t=None, s=None,):
+        self.b = b
+        self.t = t
+        self.s = s
 
-  def __repr__(self):
-    L = ['%s=%r' % (key, value)
-      for key, value in self.__dict__.iteritems()]
-    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+    def __hash__(self):
+        value = 17
+        value = (value * 31) ^ hash(self.b)
+        value = (value * 31) ^ hash(self.t)
+        value = (value * 31) ^ hash(self.s)
+        return value
 
-  def __eq__(self, other):
-    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.iteritems()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
 
-  def __ne__(self, other):
-    return not (self == other)
+    def __eq__(self, other):
+        return isinstance(
+            other,
+            self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)
+
 
 class InvalidOperation(TExceptionBase):
-  """
-  Attributes:
-   - what
-   - why
-  """
 
-  thrift_spec = (
-    None, # 0
-    (1, TType.I32, 'what', None, None, ), # 1
-    (2, TType.STRING, 'why', None, None, ), # 2
-  )
+    """
+    Attributes:
+     - what
+     - why
+    """
 
-  def __init__(self, what=None, why=None,):
-    self.what = what
-    self.why = why
+    thrift_spec = (
+        None,  # 0
+        (1, TType.I32, 'what', None, None, ),  # 1
+        (2, TType.STRING, 'why', None, None, ),  # 2
+    )
 
-  def __str__(self):
-    return repr(self)
+    def __init__(self, what=None, why=None,):
+        self.what = what
+        self.why = why
 
-  def __hash__(self):
-    value = 17
-    value = (value * 31) ^ hash(self.what)
-    value = (value * 31) ^ hash(self.why)
-    return value
+    def __str__(self):
+        return repr(self)
 
-  def __repr__(self):
-    L = ['%s=%r' % (key, value)
-      for key, value in self.__dict__.iteritems()]
-    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+    def __hash__(self):
+        value = 17
+        value = (value * 31) ^ hash(self.what)
+        value = (value * 31) ^ hash(self.why)
+        return value
 
-  def __eq__(self, other):
-    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.iteritems()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
 
-  def __ne__(self, other):
-    return not (self == other)
+    def __eq__(self, other):
+        return isinstance(
+            other,
+            self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)
+
 
 class BadRequest(TExceptionBase):
-  """
-  Attributes:
-   - c
-   - b
-  """
 
-  thrift_spec = (
-    None, # 0
-    (1, TType.STRUCT, 'c', (C, C.thrift_spec), None, ), # 1
-    (2, TType.STRUCT, 'b', (B, B.thrift_spec), None, ), # 2
-  )
+    """
+    Attributes:
+     - c
+     - b
+    """
 
-  def __init__(self, c=None, b=None,):
-    self.c = c
-    self.b = b
+    thrift_spec = (
+        None,  # 0
+        (1, TType.STRUCT, 'c', (C, C.thrift_spec), None, ),  # 1
+        (2, TType.STRUCT, 'b', (B, B.thrift_spec), None, ),  # 2
+    )
 
-  def __str__(self):
-    return repr(self)
+    def __init__(self, c=None, b=None,):
+        self.c = c
+        self.b = b
 
-  def __hash__(self):
-    value = 17
-    value = (value * 31) ^ hash(self.c)
-    value = (value * 31) ^ hash(self.b)
-    return value
+    def __str__(self):
+        return repr(self)
 
-  def __repr__(self):
-    L = ['%s=%r' % (key, value)
-      for key, value in self.__dict__.iteritems()]
-    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+    def __hash__(self):
+        value = 17
+        value = (value * 31) ^ hash(self.c)
+        value = (value * 31) ^ hash(self.b)
+        return value
 
-  def __eq__(self, other):
-    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.iteritems()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
 
-  def __ne__(self, other):
-    return not (self == other)
+    def __eq__(self, other):
+        return isinstance(
+            other,
+            self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)

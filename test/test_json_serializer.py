@@ -7,6 +7,7 @@ from unimodel.model import Unimodel, Field
 from unimodel.types import *
 import json
 
+
 class JSONSerializerTestCase(TestCase):
 
     def test_unicode_and_binary(self):
@@ -40,7 +41,7 @@ class JSONSerializerTestCase(TestCase):
         exc = None
         try:
             serializer.serialize(A(f=33))
-        except Exception, exc:
+        except Exception as exc:
             pass
         self.assertTrue(isinstance(exc, ValueTypeException))
 
@@ -61,7 +62,7 @@ class JSONSerializerTestCase(TestCase):
         exc = None
         try:
             d = serializer.deserialize(A, json_str)
-        except Exception, exc:
+        except Exception as exc:
             pass
         self.assertTrue(exc is not None)
         self.assertEquals(type(exc), JSONValidationException)
@@ -79,7 +80,7 @@ class JSONSerializerTestCase(TestCase):
         try:
             serializer = JSONSerializer(skip_unknown_fields=False)
             d = serializer.deserialize(A, json_str)
-        except Exception, exc:
+        except Exception as exc:
             pass
         self.assertTrue(exc is not None)
         self.assertEquals(type(exc), JSONValidationException)
@@ -95,11 +96,11 @@ class JSONSerializerTestCase(TestCase):
             e = Field(Map(Enum({1: "one", 2: "two"}), Int))
 
         data = A(
-                a = {"a": 1},
-                b = {bin(173): 1},
-                c = {1: 1},
-                d = {2**40: 1},
-                e = {2: 1})
+            a={"a": 1},
+            b={bin(173): 1},
+            c={1: 1},
+            d={2 ** 40: 1},
+            e={2: 1})
 
         serializer = JSONSerializer()
         s = serializer.serialize(data)
@@ -112,21 +113,23 @@ class JSONSerializerTestCase(TestCase):
         exc = None
         try:
             print serializer.serialize(B(a={2.333: 1}))
-        except Exception, exc:
+        except Exception as exc:
             pass
 
     def test_custom_field_names(self):
         NAME = "/-/"
+
         class A(Unimodel):
-            a = Field(Map(UTF8, Int), metadata=Metadata(backend_data={'json': JSONFieldData(property_name=NAME)}))
+            a = Field(Map(UTF8, Int), metadata=Metadata(
+                backend_data={'json': JSONFieldData(property_name=NAME)}))
 
         serializer = JSONSerializer()
-        data = A(a={"a":1})
+        data = A(a={"a": 1})
         s = serializer.serialize(data)
         parsed_json = json.loads(s)
         self.assertTrue(NAME in parsed_json)
         self.assertEquals(data, serializer.deserialize(A, s))
- 
+
     def test_unboxed_struct(self):
         class Unboxed(Unimodel):
             a = Field(Int)
@@ -134,13 +137,13 @@ class JSONSerializerTestCase(TestCase):
 
         class Parent(Unimodel):
             a = Field(
-                    Struct(Unboxed),
-                    metadata=Metadata(
-                        backend_data={'json': JSONFieldData(is_unboxed=True)}))
+                Struct(Unboxed),
+                metadata=Metadata(
+                    backend_data={'json': JSONFieldData(is_unboxed=True)}))
             c = Field(Int)
 
         serializer = JSONSerializer()
-        data = Parent(a=Unboxed(a=1,b=2),c=3)
+        data = Parent(a=Unboxed(a=1, b=2), c=3)
         s = serializer.serialize(data)
         parsed_json = json.loads(s)
         self.assertEquals(sorted(parsed_json.keys()), ["a", "b", "c"])

@@ -5,6 +5,7 @@ from unimodel.backends.base import Serializer
 from unimodel.backends.thrift.type_data import TType
 from unimodel.types import Tuple
 
+
 class ThriftSpecFactory(object):
 
     def __init__(self, model_registry=None):
@@ -17,11 +18,14 @@ class ThriftSpecFactory(object):
 
     def get_spec(self, struct_class):
         if struct_class not in self._spec_cache:
-            self._spec_cache[struct_class] = self.get_spec_for_struct(struct_class)
+            self._spec_cache[
+                struct_class] = self.get_spec_for_struct(struct_class)
         return self._spec_cache[struct_class]
 
     def get_spec_for_struct(self, struct_class):
-        field_list = sorted(struct_class._fields_by_name.values(), key=lambda x: x.field_id)
+        field_list = sorted(
+            struct_class._fields_by_name.values(),
+            key=lambda x: x.field_id)
         thrift_spec = [None]
         # save the spec to cache so recurisve data structures work.
         self._spec_cache[struct_class] = thrift_spec
@@ -30,11 +34,13 @@ class ThriftSpecFactory(object):
         return thrift_spec
 
     def get_tuple_type_parameter(self, field_type):
-        #tuple_id = 
-        return None #(implementation_class, self.get_spec(implementation_class))
+        # tuple_id =
+        # (implementation_class, self.get_spec(implementation_class))
+        return None
 
     def get_spec_type_parameter(self, field_type):
-        """ Returns value 3 of the element in thrift_spec which defines this field. """
+        """ Returns value 3 of the element
+            in thrift_spec which defines this field. """
         # tuples are encoded as structs
         if isinstance(field_type, Tuple):
             return self.get_tuple_type_parameter(field_type)
@@ -63,6 +69,7 @@ class ThriftSpecFactory(object):
             self.get_spec_type_parameter(field.field_type),
             field.default,)
 
+
 class ThriftProtocol(object):
 
     factories = [
@@ -90,13 +97,14 @@ class ThriftProtocol(object):
         return None
 
     def __init__(self, protocol_name_or_id):
-        if type(protocol_name_or_id) == int:
+        if isinstance(protocol_name_or_id, int):
             protocol = self.lookup_by_id(protocol_name_or_id)
         else:
             protocol = self.lookup_by_name(protocol_name_or_id)
-        self.id, self.name, self.factory =  protocol
+        self.id, self.name, self.factory = protocol
 
-default_protocol_factory=ThriftProtocol('binary').factory
+default_protocol_factory = ThriftProtocol('binary').factory
+
 
 class ThriftSerializer(Serializer):
 
@@ -127,7 +135,13 @@ class ThriftSerializer(Serializer):
         return obj
 
     def write_to_stream(self, obj, protocol):
-        return protocol.writeStruct(obj, self.spec_factory.get_spec_for_struct(obj.__class__))
+        return protocol.writeStruct(
+            obj,
+            self.spec_factory.get_spec_for_struct(
+                obj.__class__))
 
     def read_from_stream(self, obj, protocol):
-        protocol.readStruct(obj, self.spec_factory.get_spec_for_struct(obj.__class__))
+        protocol.readStruct(
+            obj,
+            self.spec_factory.get_spec_for_struct(
+                obj.__class__))

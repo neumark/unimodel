@@ -41,4 +41,5 @@ class RecursiveTypeTestCase(TestCase):
         s = serializer.serialize(data)
         d = serializer.deserialize(TreeNode, s)
         self.assertEquals(d.__class__, TreeNode)
-        self.assertEquals(sorted([c.data.name for c in d.children]), ["josef", "julia", "julio"])
+        self.assertEquals(
+            sorted([c.data.name for c in d.children]), ["josef", "julia", "julio"])

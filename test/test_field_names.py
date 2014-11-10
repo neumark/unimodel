@@ -7,12 +7,15 @@ from unimodel.backends.thrift.serializer import ThriftSpecFactory
 FIELD_NAME1 = 'long-hypenated-name'
 FIELD_NAME2 = 'a:""f'
 
+
 class FieldNameTestClass(Unimodel):
     shortname = Field(types.UTF8, field_name=FIELD_NAME1)
     f = Field(types.Int, field_name=FIELD_NAME2)
 
 # TODO: nonworking tests ATM, will fix when JSON serializer works
-class ProtocolTestCase(object): #TestCase):
+
+
+class ProtocolTestCase(object):  # TestCase):
 
     def test_constructor_args(self):
         VALUE1 = "asdf"

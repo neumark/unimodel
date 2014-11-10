@@ -5,10 +5,14 @@ from unimodel.backends.base import Serializer
 from unimodel import types
 from contextlib import contextmanager
 from unimodel.validation import ValidationException, ValueTypeException
-from unimodel.backends.json.type_data import get_field_name, get_field_by_name, is_unboxed_struct_field
+from unimodel.backends.json.type_data import (get_field_name,
+                                              get_field_by_name,
+                                              is_unboxed_struct_field)
+
 
 class SerializationException(Exception):
     pass
+
 
 class JSONValidationException(ValidationException):
 
@@ -22,6 +26,7 @@ class JSONValidationException(ValidationException):
         return "%s, context: %s exc: %s" % (
             msg, str(self.context), str(self.exc))
 
+
 class Context(object):
 
     def __init__(self):
@@ -29,7 +34,8 @@ class Context(object):
 
     def __str__(self):
         if self.context_stack:
-            return "JSON path: '%s' value: '%s'" % (self.current_path(), self.context_stack[-1][2])
+            return "JSON path: '%s' value: '%s'" % (
+                self.current_path(), self.context_stack[-1][2])
 
     @contextmanager
     def context(self, key, type_definition, value):
@@ -39,7 +45,7 @@ class Context(object):
 
     def current_path(self):
         def fmt(s):
-            if type(s) == int:
+            if isinstance(s, int):
                 return "[%s]" % s
             if len(str(s)) > 0:
                 return ".%s" % s
@@ -56,11 +62,12 @@ class Context(object):
         new_context.context_stack = list(self.context_stack)
         return new_context
 
+
 class JSONSerializer(Serializer):
 
     def __init__(self,
-            skip_unknown_fields=True,
-            **kwargs):
+                 skip_unknown_fields=True,
+                 **kwargs):
         super(JSONSerializer, self).__init__(**kwargs)
         self.skip_unknown_fields = skip_unknown_fields
         self.context = Context()
@@ -73,7 +80,8 @@ class JSONSerializer(Serializer):
 
     def writeStruct(self, obj, output=None):
         output = {} if output is None else output
-        unboxed_struct_fields = self.get_unboxed_struct_fields(obj.get_field_definitions())
+        unboxed_struct_fields = self.get_unboxed_struct_fields(
+            obj.get_field_definitions())
         for name, value in obj.items():
             if value is not None:
                 field = obj.get_field_definition(name)
@@ -81,7 +89,10 @@ class JSONSerializer(Serializer):
                     if field in unboxed_struct_fields:
                         self.writeStruct(value, output)
                     else:
-                        output[get_field_name(field)] = self.writeField(field.field_type, value)
+                        output[
+                            get_field_name(field)] = self.writeField(
+                            field.field_type,
+                            value)
         return output
 
     def writeField(self, field_type, value):
@@ -99,14 +110,16 @@ class JSONSerializer(Serializer):
             return self.writeList(field_type, value)
         if isinstance(field_type, types.Map):
             return self.writeMap(field_type, value)
-        raise Exception("Don't know how to write type %s (value %s)" % (field_type, value))
+        raise Exception(
+            "Don't know how to write type %s (value %s)" %
+            (field_type, value))
 
     def writeValue(self, value):
         return value
 
     def writeEnum(self, field_type, value):
         return field_type.key_to_name(value)
- 
+
     def writeString(self, field_type, value):
         if isinstance(field_type, types.Binary):
             return base64.b64encode(value)
@@ -147,7 +160,7 @@ class JSONSerializer(Serializer):
         return self.model_registry.lookup(cls)
 
     def assert_type(self, value_type, value):
-        if type(value) != value_type:
+        if not isinstance(value, value_type):
             raise JSONValidationException(
                 "Expecting %s, got %s" % (value_type, value),
                 self.context)
@@ -155,15 +168,19 @@ class JSONSerializer(Serializer):
     def assert_valid(self, type_definition, value):
         try:
             type_definition.validate(value)
-        except ValidationException, e:
-            raise JSONValidationException("Error reading '%s' as %s" % (value, type_definition.__class__.__name__), self.context, e)
+        except ValidationException as e:
+            raise JSONValidationException(
+                "Error reading '%s' as %s" %
+                (value, type_definition.__class__.__name__), self.context, e)
 
     def assert_map_key_type(self, map_key_type):
         if isinstance(map_key_type, types.Int):
             return
         if isinstance(map_key_type, types.UTF8):
             return
-        raise SerializationException("JSON serializer cannot use type '%s' map keys" % str(map_key_type))
+        raise SerializationException(
+            "JSON serializer cannot use type '%s' map keys" %
+            str(map_key_type))
 
     def get_unboxed_struct_fields(self, field_definitions):
         unboxed_struct_fields = []
@@ -178,7 +195,8 @@ class JSONSerializer(Serializer):
             target_obj = self.get_implementation_class(struct_class)()
         read_fields = []
         unknown_fields = []
-        unboxed_struct_fields = self.get_unboxed_struct_fields(struct_class.get_field_definitions())
+        unboxed_struct_fields = self.get_unboxed_struct_fields(
+            struct_class.get_field_definitions())
         for key, raw_value in json_obj.iteritems():
             field = get_field_by_name(target_obj, key)
             # unboxed_struct_fields should not be read as regular values
@@ -191,18 +209,21 @@ class JSONSerializer(Serializer):
                 target_obj._set_value_by_field_id(field.field_id, parsed_value)
         # Read the subfields of unboxed fields
         for unboxed_struct_field in unboxed_struct_fields:
-             target_obj._set_value_by_field_id(
-                    unboxed_struct_field.field_id,
-                    self.readStruct(unboxed_struct_field.field_type.python_type,
-                        dict([(k, v) for k, v in json_obj.items() if k not in read_fields])))
+            target_obj._set_value_by_field_id(
+                unboxed_struct_field.field_id,
+                self.readStruct(unboxed_struct_field.field_type.python_type,
+                                dict([(k, v) for k, v in json_obj.items()
+                                      if k not in read_fields])))
         if not self.skip_unknown_fields and len(unknown_fields) > 0:
             raise JSONValidationException(
                 "unknown fields: %s" % ", ".join(unknown_fields),
                 self.context)
         try:
             target_obj.validate()
-        except Exception, e:
-            raise JSONValidationException("Error validating %s: %s" % (struct_class.__name__, str(e)), self.context, e)
+        except Exception as e:
+            raise JSONValidationException(
+                "Error validating %s: %s" %
+                (struct_class.__name__, str(e)), self.context, e)
         return target_obj
 
     def readField(self, type_definition, value):
@@ -220,7 +241,9 @@ class JSONSerializer(Serializer):
             return self.readMap(type_definition, value)
         if isinstance(type_definition, types.List):
             return self.readList(type_definition, value)
-        raise Exception("Cannot read type %s (value is %s)" % (str(type_definition), str(value)))
+        raise Exception(
+            "Cannot read type %s (value is %s)" %
+            (str(type_definition), str(value)))
 
     def readEnum(self, type_definition, name):
         enum_key = type_definition.name_to_key(name)
@@ -244,11 +267,18 @@ class JSONSerializer(Serializer):
         self.assert_map_key_type(map_key_type)
         map_type_definition = type_definition.type_parameters[1]
         for encoded_key, encoded_value in collection.items():
-            if isinstance(map_key_type, types.Int) and not isinstance(map_key_type, types.Enum):
+            if isinstance(
+                    map_key_type,
+                    types.Int) and not isinstance(
+                    map_key_type,
+                    types.Enum):
                 encoded_key = int(encoded_key)
             with self.context.context(encoded_key, map_key_type, encoded_key):
                 key = self.readField(map_key_type, encoded_key)
-            with self.context.context(encoded_key, map_type_definition, encoded_value):
+            with self.context.context(
+                    encoded_key,
+                    map_type_definition,
+                    encoded_value):
                 value = self.readField(map_type_definition, encoded_value)
             result[key] = value
         type_definition.validate(result)
