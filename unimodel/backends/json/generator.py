@@ -178,12 +178,52 @@ class JSONSchemaModelGenerator(object):
             struct_def.fields.append(field_def)
         return struct_def
 
-    def generate_composite_struct(self, name, definition):
+    def field_name_from_type(self, field_type, existing_names=None):
+        existing_names = [] if existing_names is None else existing_names
+        def ensure_nonexisting(original_name):
+            name = original_name
+            counter = 0
+            while name in existing_names:
+                name = "%s%s" % (original_name, counter)
+                counter += 1
+            existing_names.append(name)
+            return name
+        # primitive types
+        if field_type.type_class.primitive_type_id is not None:
+            return ensure_nonexisting(type_id_enum.key_to_name(
+                field_type.type_class.primitive_type_id))
+        if field_type.type_class.enum is not None:
+            return ensure_nonexisting('enum')
+        if field_type.type_class.struct_name is not None:
+            return ensure_nonexisting(field_type.type_class.struct_name)
+        # parametric types
+        name_parts = [type_id_enum.key_to_name(
+            field_type.type_class.parametric_type.type_id)]
+        for t in field_type.type_class.parametric_type.type_parameters:
+            name_parts.append(self.field_name_from_type(t))
+        return ensure_nonexisting("_".join(name_parts))
+
+    def generate_composite_struct(self, name, definition, composition_type):
         """ generates StructDefs for anyOf, allOf and oneOf """
-        # TODO TypeParams!!!
+        # TODO: differentiate based on composition_type:
+        # oneOf: type union (formerly called unboxed union)
+        # allOf, anyOf: unboxed struct
+        field_types = [self.get_field_type(None, d)
+                       for d in definition[composition_type]]
+        field_list = []
+        existing_field_names = []
+        for field_type in field_types:
+            field_name = self.field_name_from_type(
+                field_type,
+                existing_field_names)
+            field_list.append(
+                FieldDef(
+                    common=SchemaObject(name=field_name),
+                    required=False,
+                    field_type=field_type))
         return StructDef(
             common=SchemaObject(name=relative_name(name)),
-            fields=[])
+            fields=field_list)
 
     def generate_tuple(self, name, definition):
         """ generates StructDefs for anyOf, allOf and oneOf """
@@ -203,9 +243,14 @@ class JSONSchemaModelGenerator(object):
         # check if the value is already cached
         if self.is_defined(name):
             return self.definitions[name]
-        # this is sort of a hack for constants
+        # empty objects
         if definition == {}:
-            return self.save_type_def(name, Literal())  # TODO
+            return self.save_type_def(
+                name,
+                StructDef(
+                    common=SchemaObject(
+                        name=relative_name(name)),
+                    fields=[]))
         # recursively process references
         if Reference.is_ref(definition):
             ref = Reference(definition)
@@ -223,13 +268,14 @@ class JSONSchemaModelGenerator(object):
                     name,
                     definition))
         # composite structs / unions
-        for union_type in ['allOf', 'oneOf', 'anyOf']:
-            if union_type in definition:
+        for composition_type in ['allOf', 'oneOf', 'anyOf']:
+            if composition_type in definition:
                 return self.save_type_def(
                     name,
                     self.generate_composite_struct(
                         name,
-                        definition))
+                        definition,
+                        composition_type))
         # tuples
         if 'additionalItems' in definition:
             return self.save_type_def(
@@ -255,14 +301,24 @@ class JSONSchemaModelGenerator(object):
         # matter: enums, lists, sets, primitive types
         return self.save_type_def(name, self.generate_type_def(definition))
 
+    def make_unique_name(self, name):
+        while name in self.definitions:
+            name += "_"
+        return name                
+
     def generate_model_schema(self):
         # generate models for structs in definitions
         model_schema = ModelSchema(
             common=SchemaObject(name=self.name),
             description=self.schema.get('description', ''))
+        # process schema definitions
         for name, definition in self.schema.get('definitions', {}).items():
             full_name = REF_TEMPLATE % name
             self.process_definition(full_name, definition)
+        # process schema root object
+        root_name = self.make_unique_name("Root")
+        self.process_definition(root_name, self.schema)
+        model_schema.root_struct_name = root_name
         model_schema.structs = [
             s for s in self.definitions.values() if isinstance(
                 s,

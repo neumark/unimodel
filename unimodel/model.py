@@ -222,6 +222,9 @@ class Unimodel(object):
 
 class UnimodelUnion(Unimodel):
 
+    # TODO: validate that 0 or 1 fields are set!
+    # Perhaps setattr should unset the formerly active field
+
     def current_field(self):
         set_fields = []
         for f in self.get_field_definitions():
