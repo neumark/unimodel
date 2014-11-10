@@ -44,11 +44,9 @@ type_id_enum = types.Enum(get_type_id_to_name_dict())
 
 # TypeDef is recursive because of ParametricType
 class TypeDef(Unimodel):
+    pass
 
-    def __init__(self, type_constructor=None, **kwargs):
-        super(TypeDef, self).__init__(**kwargs)
-        self.type_constructor = type_constructor
-
+# List, Set, Map, Tuple
 class ParametricType(Unimodel):
     type_id = Field(type_id_enum, required=True)
     type_parameters = Field(types.List(types.Struct(TypeDef)), required=True)
@@ -68,6 +66,7 @@ class Literal(UnimodelUnion):
     integer = Field(types.Int)
     double = Field(types.Double)
     string = Field(types.UTF8)
+    metadata = Field(types.Struct(SchemaObjectMetadata))
 
 class FieldDef(Unimodel):
     common = schema_object_field
@@ -79,10 +78,6 @@ class StructDef(Unimodel):
     common = schema_object_field
     is_union = Field(types.Bool, default=False)
     fields = Field(types.List(types.Struct(FieldDef)), required=True)
-
-class TupleDef(Unimodel):
-    common = schema_object_field
-    types = Field(types.List(types.Struct(TypeDef)), required=True)
 
 class ModelSchema(Unimodel):
     common = schema_object_field

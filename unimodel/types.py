@@ -188,6 +188,10 @@ class Struct(BasicType):
     thrift_type_id = TType.STRUCT
     json_type = "object"
 
+    def validate(self, value):
+        super(Struct, self).validate(value)
+        value.validate()
+
     def __init__(self, struct_class, **kwargs):
         self.python_type = struct_class
         super(Struct, self).__init__(**kwargs)

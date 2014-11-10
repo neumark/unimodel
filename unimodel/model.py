@@ -1,7 +1,7 @@
 import sys
 import copy
 from unimodel.metadata import Metadata
-
+from unimodel.validation import ValidationException
 class FieldFactory(object):
 
     def field_dict_to_field_list(self, field_dict):
@@ -79,6 +79,10 @@ class Field(object):
     def validate(self, value):
         # first, validate the type of the value
         self.field_type.validate(value)
+        # then run any potential custom validators on the field
+        if self.metadata.validators:
+            for validator in self.metadata.validators:
+                validator.validate(value)
 
 class UnimodelMetaclass(type):
     def __init__(cls, name, bases, dct):

@@ -72,7 +72,6 @@ class JSONSerializer(Serializer):
             return json.dumps(self.writeStruct(obj))
 
     def writeStruct(self, obj, output=None):
-        print obj
         output = {} if output is None else output
         unboxed_struct_fields = self.get_unboxed_struct_fields(obj.get_field_definitions())
         for name, value in obj.items():
