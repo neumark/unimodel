@@ -73,12 +73,17 @@ field_factory.add_fields(TypeDef, {
     'metadata': Field(types.Struct(SchemaObjectMetadata)),
     'type_class': Field(types.Struct(TypeClass), required=True)})
 
-
-class Literal(UnimodelUnion):
+class LiteralValue(UnimodelUnion):
     integer = Field(types.Int)
     double = Field(types.Double)
     string = Field(types.UTF8)
-    metadata = Field(types.Struct(SchemaObjectMetadata))
+
+class Literal(Unimodel):
+    literal_value = Field(types.Struct(LiteralValue()))
+    metadata = Field(
+        types.Struct(SchemaObjectMetadata),
+        metadata=Metadata(
+            backend_data={'json': JSONFieldData(is_unboxed=True)}))
 
 
 class FieldDef(Unimodel):

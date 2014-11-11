@@ -3,6 +3,7 @@ import jsonschema
 from unimodel.schema import *
 from unimodel import types
 from jsonschema.validators import RefResolver
+from unimodel.validation import is_str
 
 # Thanks to Randy Abernethy for the list of reserved keywords
 RESERVED_NAMES = """BEGIN END __CLASS__ __DIR__ __FILE__ __FUNCTION__ __LINE__
@@ -15,9 +16,21 @@ public print private protected public raise redo rescue retry register return
 self sizeof static super switch synchronized then this throw transient try
 undef union unless unsigned until use var virtual volatile when while with xor
 yield""".split()
-REF_TEMPLATE = "#/definitions/%s"
+REF_TEMPLATE = "%(base_uri)s#/definitions/%(name)s"
 DEFAULT_ARRAY_ITEMS = {'type': 'string'}
 
+def walk_json(json_obj, key=""):
+    def append_key(prefix, postfix):
+        return "%s.%s" % (prefix, postfix)
+    if isinstance(json_obj, dict):
+        for k, v in json_obj.items():
+            for pair in walk_json(v, append_key(key, str(k))):
+                yield pair
+    elif isinstance(json_obj, list):
+        for i in xrange(0, len(json_obj)):
+            for pair in walk_json(json_obj[i], append_key(key, str(i))):
+                yield pair
+    yield (key, json_obj)
 
 class Reference(object):
     REF_ATTR = '$ref'
@@ -29,11 +42,31 @@ class Reference(object):
     def is_ref(cls, obj):
         return isinstance(obj, dict) and Reference.REF_ATTR in obj
 
+    @classmethod
+    def make_absolute(cls, base_uri, ref):
+        if is_str(ref) and ref.startswith('#'):
+            return "%s%s" % (base_uri, ref)
+        return ref
+
+    def replace_relative_references(self, base_uri, json_value):
+        # TODO
+        for _path, value in walk_json(json_value):
+            if isinstance(value, dict) and Reference.REF_ATTR in value:
+                value[Reference.REF_ATTR] = self.make_absolute(
+                    base_uri, value[Reference.REF_ATTR])
+        return json_value
+
     def resolve(self, refresolver):
         with refresolver.resolving(self.ref) as res:
             if self.is_ref(res):
-                return Reference(res).resolve(refresolver)
-            return res
+                # note that for relative references the resolver's
+                # resolution scope should be prepended, this way
+                # when one jsonschema doc refers to another
+                # which then refers to itself, we keep up and
+                # 'switch docs'.
+                ref = Reference(res)
+                return ref.resolve(refresolver)
+            return self.replace_relative_references(refresolver.base_uri, res)
 
 
 def relative_name(full_name):
@@ -87,6 +120,7 @@ class JSONSchemaModelGenerator(object):
     def __init__(self, name, schema):
         self.name = name
         self.schema = schema
+        self.base_uri = schema.get('id', '')
         self.definitions = {}
         self.refresolver = RefResolver.from_schema(schema)
 
@@ -152,6 +186,10 @@ class JSONSchemaModelGenerator(object):
             field_type_obj = TypeDef(
                 type_class=TypeClass(
                     struct_name=field_type_obj.common.name))
+        if isinstance(field_type_obj, Literal):
+            # default values result in Literals being returned by
+            # process_definition. In such cases we just return None
+            return None
         assert isinstance(field_type_obj, TypeDef)
         return field_type_obj
 
@@ -168,9 +206,6 @@ class JSONSchemaModelGenerator(object):
         required_fields = definition.get('required', [])
         for field_name, field_definition in definition.get(
                 'properties', {}).items():
-            # TODO: fix handling of default fields
-            if field_name == 'default':
-                continue  # ignoring defaults for now
             field_def = self.generate_field(
                 field_name,
                 field_definition,
@@ -213,6 +248,12 @@ class JSONSchemaModelGenerator(object):
         field_list = []
         existing_field_names = []
         for field_type in field_types:
+            # default value definitions like {'default': 0}
+            # result in extra Literal types. get_field_type
+            # returns None for them. We can ignore them
+            # as long as we don't claim to do jsonschema validation.
+            if field_type is None:
+                continue
             field_name = self.field_name_from_type(
                 field_type,
                 existing_field_names)
@@ -221,6 +262,10 @@ class JSONSchemaModelGenerator(object):
                     common=SchemaObject(name=field_name),
                     required=False,
                     field_type=field_type))
+        # if field_list only has a single field, we don't need
+        # a composite struct.
+        if len(field_list) == 1:
+            return field_list[0].field_type
         return StructDef(
             common=SchemaObject(name=relative_name(name)),
             fields=field_list)
@@ -243,6 +288,10 @@ class JSONSchemaModelGenerator(object):
         # check if the value is already cached
         if self.is_defined(name):
             return self.definitions[name]
+        # default values:
+        if definition.keys() == ['default']:
+            # TODO: make the 'real' kind of literal
+            return Literal(literal_value=LiteralValue(integer=0))
         # empty objects
         if definition == {}:
             return self.save_type_def(
@@ -313,7 +362,7 @@ class JSONSchemaModelGenerator(object):
             description=self.schema.get('description', ''))
         # process schema definitions
         for name, definition in self.schema.get('definitions', {}).items():
-            full_name = REF_TEMPLATE % name
+            full_name = REF_TEMPLATE % {'base_uri': self.base_uri, 'name': name}
             self.process_definition(full_name, definition)
         # process schema root object
         root_name = self.make_unique_name("Root")
