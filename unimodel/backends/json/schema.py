@@ -3,6 +3,7 @@ import copy
 import json
 from unimodel import types
 from unimodel.backends.json.type_data import get_field_name
+from unimodel.util import get_backend_type
 
 """
 Useful: http://www.jsonschema.net/
@@ -10,25 +11,12 @@ Example: from http://json-schema.org/example2.html
 """
 
 
-"""
-A map looks something like this:
-(taken from:
-https://github.com/swagger-api/swagger-spec/blob/master/fixtures/v2.0/json/models/modelWithInt32Map.json)
-{
-  "description": "This is a Map[String, Integer]",
-  "additionalProperties": {
-    "type": "integer",
-    "format": "int32"
-  }
-}"""
-
 MAP_DEFINITION_TEMPLATE = {
     "description": "map",
     "additionalProperties": True,
-    "required": [],  # Fill with required field names
 }
 
-STRUCT_MAP_DEFINITION_TEMPLATE = {
+STRUCT_DEFINITION_TEMPLATE = {
     "type": "object",
     "properties": {},  # Fill with field definitions
     "additionalProperties": True,
@@ -36,15 +24,11 @@ STRUCT_MAP_DEFINITION_TEMPLATE = {
 }
 
 SCHEMA_TEMPLATE = dict(copy.deepcopy(
-    STRUCT_MAP_DEFINITION_TEMPLATE).items() + {
+    STRUCT_DEFINITION_TEMPLATE).items() + {
     "$schema": "http://json-schema.org/draft-04/schema#",
     "description": None,  # Replace with schema description
     "definitions": {}  # Fill struct and map type definitions
 }.items())
-
-BASIC_FIELD_TEMPLATE = {
-    "type": None  # Replace with basic type name, eg: "string"
-}
 
 LIST_TEMPLATE = {
     "type": "array",
@@ -52,6 +36,11 @@ LIST_TEMPLATE = {
         "type": None  # Replace with type reference to definition of elements
     },
     "uniqueItems": False  # set to True for sets
+}
+
+JSONDATA_TEMPLATE = {
+    "description": "Generic JSONData field",
+    "additionalProperties": True
 }
 
 
@@ -81,7 +70,7 @@ class JSONSchemaWriter(SchemaWriter):
 
     def get_struct_definition(self, struct_class):
         """ returns (name, definition) pairs """
-        struct_def = copy.deepcopy(STRUCT_MAP_DEFINITION_TEMPLATE)
+        struct_def = copy.deepcopy(STRUCT_DEFINITION_TEMPLATE)
         self.add_struct_properties(struct_class, struct_def)
         return (struct_class.get_name(), struct_def)
 
@@ -102,9 +91,9 @@ class JSONSchemaWriter(SchemaWriter):
         """ returns field (name, definition) pair """
         if isinstance(type_definition, types.Enum):
             return self.define_enum_field(type_definition)
-        if isinstance(type_definition, types.NumberType):
+        if isinstance(type_definition, types.NumberTypeMarker):
             return self.define_basic_field(type_definition)
-        if isinstance(type_definition, types.UTF8):
+        if isinstance(type_definition, types.StringTypeMarker):
             return self.define_basic_field(type_definition)
         if isinstance(type_definition, types.Bool):
             return self.define_basic_field(type_definition)
@@ -116,16 +105,17 @@ class JSONSchemaWriter(SchemaWriter):
         if isinstance(type_definition, types.Map):
             return self.define_map_field(type_definition)
         if isinstance(type_definition, types.List):
-            return self.define_list(type_definition)
+            return self.define_array(type_definition)
+        if isinstance(type_definition, types.JSONData):
+            return copy.deepcopy(JSONDATA_TEMPLATE)
+        if isinstance(type_definition, types.Tuple):
+            return self.define_array(type_definition)
         raise Exception(
             "Cannot create schema for type %s" %
             str(type_definition))
 
     def define_basic_field(self, type_definition):
-        field_def = copy.deepcopy(BASIC_FIELD_TEMPLATE)
-        field_def['type'] = type_definition.metadata.backend_data[
-            'json'].type_name
-        return field_def
+        return copy.deepcopy(get_backend_type("json", type_definition.type_id))
 
     def define_enum_field(self, type_definition):
         field_def = {'enum': type_definition.names()}
@@ -134,20 +124,32 @@ class JSONSchemaWriter(SchemaWriter):
     def reference_type(self, type_definition):
         return {
             "$ref": "#/definitions/%s" %
-            type_definition.python_type.get_name()}
+            type_definition.get_python_type().get_name()}
 
     def define_map_field(self, type_definition):
-        # It's not possible to write a schema for a map type on jsonschema.
-        # Yes, I know it's crazy. I'm not the one who wanted to ditch Thrift
-        # for this crap! :)
-        field_def = copy.deepcopy(STRUCT_MAP_DEFINITION_TEMPLATE)
-        del field_def['required']
+        """
+        A map looks something like this:
+        (taken from:
+        https://github.com/swagger-api/swagger-spec/blob/master/fixtures/v2.0/json/models/modelWithInt32Map.json)
+        {
+          "description": "This is a Map[String, Integer]",
+          "additionalProperties": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }"""
+
+        field_def = copy.deepcopy(MAP_DEFINITION_TEMPLATE)
+        field_def["description"] = type_definition.get_type_name()
+        if not isinstance(type_definition.type_parameters[0], types.UTF8):
+            raise Exception("JSONSchema can only handle maps with UTF8 keys")
+        field_def['additionalProperties'] = self.get_type_definition(type_definition.type_parameters[1])
         return field_def
 
-    def define_list(self, type_definition):
+    def define_array(self, type_definition):
         field_def = copy.deepcopy(LIST_TEMPLATE)
-        field_def['items'] = self.get_type_definition(
-            type_definition.type_parameters[0])
+        type_parameter_defs = [self.get_type_definition(t) for t in type_definition.type_parameters]
+        field_def['items'] = type_parameters_def[0] if len(type_parameter_defs) == 0 else type_parameter_defs
         if isinstance(type_definition, types.Set):
             field_def['uniqueItems'] = True
         return field_def
@@ -155,7 +157,7 @@ class JSONSchemaWriter(SchemaWriter):
     def get_dependencies_for_field_type(self, field_type, struct_dependencies):
         if isinstance(field_type, types.Struct):
             self.get_dependencies_for_one_struct(
-                field_type.python_type,
+                field_type.get_python_type(),
                 struct_dependencies)
         if field_type.type_parameters:
             for type_parameter in field_type.type_parameters:

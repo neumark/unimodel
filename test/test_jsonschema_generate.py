@@ -5,19 +5,16 @@ from unimodel.backends.json.serializer import JSONSerializer
 from unimodel.backends.json.schema import JSONSchemaWriter
 from unimodel.backends.json.generator import JSONSchemaModelGenerator, walk_json
 from test.helpers import flatten
-from test.fixtures import TreeNode, AllTypes, NodeData, data
+from test.fixtures import TreeNode, AllTypes, NodeData, tree_data
 from unimodel.model import Unimodel, Field
 from unimodel.codegen import SchemaCompiler, load_module
+from unimodel.util import pprint_json
 
 def print_model_schema_json(model_schema):
-    serializer = JSONSerializer()
-    json_data = json.loads(serializer.serialize(model_schema))
-    output_json = json.dumps(
-        json_data,
-        sort_keys=True,
-        indent=4,
-        separators=(',', ': '))
-    print output_json
+    print pprint_json(
+            json.loads(
+                JSONSerializer().serialize(
+                    model_schema)))
  
 
 class JSONSchemaGenerate(TestCase):

@@ -27,10 +27,10 @@ def type_id_to_name_dict():
     import inspect
     type_dict = {}
     for type_name in dir(sys.modules[__name__]):
-        t = getattr(types, type_name)
+        t = getattr(sys.modules[__name__], type_name)
         if inspect.isclass(t) and issubclass(
                 t,
-                types.FieldType) and hasattr(
+                FieldType) and hasattr(
                 t,
                 'type_id'):
             type_dict[t.type_id] = t.__name__.lower()
@@ -86,6 +86,13 @@ class FieldType(object):
         # check type of value
         assert_type(self.get_python_type(), value)
         self.run_custom_validators(value)
+
+    def get_type_name(self):
+        type_name = self.__class__.__name__
+        type_parameter_names = [t.get_type_name() for t in self.type_parameters]
+        if type_parameter_names:
+            type_name = "%s(%s)" % (type_name, ", ".join(type_parameter_names))
+        return type_name
 
 
 class ParametricType(FieldType):
@@ -213,10 +220,9 @@ class Tuple(FieldType):
     type_id = 11
 
     def __init__(self, *type_parameters, **kwargs):
-        super(Tuple, self).__init__(**kwargs)
+        super(Tuple, self).__init__(type_parameters=type_parameters, **kwargs)
         if len(type_parameters) == 0:
             raise Exception("Attempting to define empty Tuple")
-        self.type_parameters = type_parameters
 
     def validate(self, value):
         assert_type(tuple, value)
@@ -275,3 +281,11 @@ class JSONData(FieldType):
     def from_string(self, string):
         import json
         return json.loads(string)
+
+    def validate(self, dictionary):
+        # we could theoretically walk the
+        # json data to make sure only
+        # json-serializable (non class instance)
+        # values are within
+        pass
+

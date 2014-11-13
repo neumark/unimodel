@@ -1,10 +1,11 @@
 from unittest import TestCase
 from unimodel.backends.json.serializer import JSONSerializer, JSONValidationException
-from unimodel.backends.json.type_data import JSONFieldData
 from test.helpers import flatten
-from test.fixtures import TreeNode, data
+from test.fixtures import TreeNode, tree_data
 from unimodel.model import Unimodel, Field
 from unimodel.types import *
+from unimodel.backends.json.type_data import MDK_FIELD_NAME, MDK_TYPE_STRUCT_UNBOXED
+from unimodel.metadata import Metadata
 import json
 
 
@@ -47,9 +48,9 @@ class JSONSerializerTestCase(TestCase):
 
     def test_json_serialize(self):
         """ serialize a complex recursive datatype into JSON """
-        pre_flattened = flatten(data)
+        pre_flattened = flatten(tree_data)
         serializer = JSONSerializer()
-        s = serializer.serialize(data)
+        s = serializer.serialize(tree_data)
         d = serializer.deserialize(TreeNode, s)
         self.assertEquals(d.__class__, TreeNode)
         post_flattened = flatten(d)
@@ -121,7 +122,7 @@ class JSONSerializerTestCase(TestCase):
 
         class A(Unimodel):
             a = Field(Map(UTF8, Int), metadata=Metadata(
-                backend_data={'json': JSONFieldData(property_name=NAME)}))
+                backend_data={'json': {MDK_FIELD_NAME: NAME}}))
 
         serializer = JSONSerializer()
         data = A(a={"a": 1})
@@ -139,7 +140,7 @@ class JSONSerializerTestCase(TestCase):
             a = Field(
                 Struct(Unboxed),
                 metadata=Metadata(
-                    backend_data={'json': JSONFieldData(is_unboxed=True)}))
+                    backend_data={'json': {MDK_TYPE_STRUCT_UNBOXED: True}}))
             c = Field(Int)
 
         serializer = JSONSerializer()

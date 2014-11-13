@@ -98,9 +98,9 @@ class JSONSerializer(Serializer):
     def writeField(self, field_type, value):
         if isinstance(field_type, types.Enum):
             return self.writeEnum(field_type, value)
-        if isinstance(field_type, types.NumberType):
+        if isinstance(field_type, types.NumberTypeMarker):
             return self.writeValue(value)
-        if isinstance(field_type, types.UTF8):
+        if isinstance(field_type, types.StringTypeMarker):
             return self.writeString(field_type, value)
         if isinstance(field_type, types.Bool):
             return self.writeValue(value)
@@ -110,6 +110,10 @@ class JSONSerializer(Serializer):
             return self.writeList(field_type, value)
         if isinstance(field_type, types.Map):
             return self.writeMap(field_type, value)
+        if isinstance(field_type, types.JSONData):
+            return value
+        if isinstance(field_type, types.Tuple):
+            return self.writeTuple(field_type, value)
         raise Exception(
             "Don't know how to write type %s (value %s)" %
             (field_type, value))
@@ -124,6 +128,16 @@ class JSONSerializer(Serializer):
         if isinstance(field_type, types.Binary):
             return base64.b64encode(value)
         return value
+
+    def writeTuple(self, field_type, value):
+        output = []
+        ix = 0
+        for element in value:
+            element_type = field_type.type_parameters[ix]
+            with self.context.context(ix, element_type, element):
+                output.append(self.writeField(element_type, element))
+            ix += 1
+        return output
 
     def writeList(self, field_type, collection):
         """ write lists and sets """
@@ -176,7 +190,7 @@ class JSONSerializer(Serializer):
     def assert_map_key_type(self, map_key_type):
         if isinstance(map_key_type, types.Int):
             return
-        if isinstance(map_key_type, types.UTF8):
+        if isinstance(map_key_type, types.StringTypeMarker):
             return
         raise SerializationException(
             "JSON serializer cannot use type '%s' map keys" %
@@ -211,7 +225,7 @@ class JSONSerializer(Serializer):
         for unboxed_struct_field in unboxed_struct_fields:
             target_obj._set_value_by_field_id(
                 unboxed_struct_field.field_id,
-                self.readStruct(unboxed_struct_field.field_type.python_type,
+                self.readStruct(unboxed_struct_field.field_type.get_python_type(),
                                 dict([(k, v) for k, v in json_obj.items()
                                       if k not in read_fields])))
         if not self.skip_unknown_fields and len(unknown_fields) > 0:
@@ -229,14 +243,14 @@ class JSONSerializer(Serializer):
     def readField(self, type_definition, value):
         if isinstance(type_definition, types.Enum):
             return self.readEnum(type_definition, value)
-        if isinstance(type_definition, types.NumberType):
+        if isinstance(type_definition, types.NumberTypeMarker):
             return self.readValue(type_definition, value)
-        if isinstance(type_definition, types.UTF8):
+        if isinstance(type_definition, types.StringTypeMarker):
             return self.readString(type_definition, value)
         if isinstance(type_definition, types.Bool):
             return self.readValue(type_definition, value)
         if isinstance(type_definition, types.Struct):
-            return self.readStruct(type_definition.python_type, value)
+            return self.readStruct(type_definition.get_python_type(), value)
         if isinstance(type_definition, types.Map):
             return self.readMap(type_definition, value)
         if isinstance(type_definition, types.List):

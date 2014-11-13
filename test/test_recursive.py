@@ -3,7 +3,7 @@ from thrift.Thrift import TType
 from unimodel.model import Unimodel, Field
 from unimodel import types
 from unimodel.backends.thrift.serializer import ThriftSerializer, ThriftProtocol, ThriftSpecFactory
-from test.fixtures import NodeData, TreeNode, data
+from test.fixtures import NodeData, TreeNode, tree_data
 
 
 class RecursiveTypeTestCase(TestCase):
@@ -38,7 +38,7 @@ class RecursiveTypeTestCase(TestCase):
 
     def test_serialize(self):
         serializer = ThriftSerializer()
-        s = serializer.serialize(data)
+        s = serializer.serialize(tree_data)
         d = serializer.deserialize(TreeNode, s)
         self.assertEquals(d.__class__, TreeNode)
         self.assertEquals(

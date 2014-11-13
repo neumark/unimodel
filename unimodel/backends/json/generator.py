@@ -8,34 +8,16 @@ IDLs like thrift or Unimodel and validation languages like jsonschema.
 The latter is perfectly happy saying "there may be additional fields here
 which I know nothing about", while the former isn't.
 
-So something like this has -stricly speaking- no Unimodel equivalent:
+So something like this has no Thrift equivalent:
     {
         "type": "object",
         "properties": {},
         "additionalProperties": true
     }
 
-We have the following options:
-1 Store this object as a bytestream along with the struct name or
-  the struct's unimodel definition. This is a fairly general solution
-  and at times may be the best thing to do. However, it's not terribly
-  pretty, and doesn't actually solve the problem, because the incoming
-  JSON could be literally *anything*. Even if we did happend to have a
-  schema for the object, we wouldn't know.
-2 We can cheat and say that 90% of time this will just be a
-  Map(UTF8, UTF8), and that's good enough for us right now.
-  We can fix it when it starts hurting.
-3 We can introduce a type hinting systems, which allows the generator's
-  user to say '#/definitions/blah' could be anything by the schema but
-  I know my data, and it's actually of typa BlahStruct.
-4 We can introduce RawJSON type as a UniModel type (or pass it in as
-  a json-encoded string). Kind of icky, but this seems to be the only
-  solution which solves the most general problem.
+Unimodel has the JSONData field for these cases.
 
-I'm going with #2 for now, and hoping to get lots of mileage out of it,
-but eventually I'll probably have to implement #3.
-
-Other mismatches (which *can* be resolved):
+Other mismatches:
 
 anyOf, allOf, oneOf
 ---
@@ -271,8 +253,15 @@ class JSONSchemaModelGenerator(object):
         return TypeDef(type_class=TypeClass(primitive_type_id=type_id))
 
     def generate_map(self, name, definition):
-        # TODO: patternProperties places constraints on the keys of the map
-        # TODO: right now, we assume it's a Map(UTF8, UTF8)
+        # There are 4 different thing we could return:
+        # 1: A Map. This is what we return if
+        #    additionalProperties or patternProperties
+        #    gives a type, and there is no 'properties' field
+        # 2: A Struct (unbox) composed of a Map and a Struct.
+        #    additionalProperties or patternProperties
+        #    gives a type, and there is a 'properties' field.
+
+
         return TypeDef(
             type_class=TypeClass(
                 parametric_type=ParametricType(
@@ -431,8 +420,10 @@ class JSONSchemaModelGenerator(object):
                 result = self.process_definition(ref.ref, resolved_definition)
                 return self.save_type_def(ref.ref, result)
         # Maps and Structs are pretty similar in jsonschema (they're both 'object'
-        # values in JSON).         # 
-        if 'patternProperties' in definition:
+        # values in JSON).
+        # Both definitions with additionalProperties and patternProperties
+        # could be either a map or the unboxed union of a struct and a map
+        if 'patternProperties' in definition or 'additionalProperties' in definition:
             return self.save_type_def(
                 name,
                 self.generate_map(

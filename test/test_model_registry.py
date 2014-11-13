@@ -1,6 +1,6 @@
 from unittest import TestCase
 from test.helpers import flatten
-from test.fixtures import TreeNode, data
+from test.fixtures import TreeNode, tree_data
 from unimodel.model import Unimodel, Field
 from unimodel.types import *
 import json

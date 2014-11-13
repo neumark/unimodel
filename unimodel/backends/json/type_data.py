@@ -26,40 +26,26 @@ type_id_mapping = {
     types.UTF8.type_id:     {"type": "string"},
     types.Binary.type_id:   {"type": "string", "format": "byte"},
     types.Double.type_id:   {"type": "number", "format": "double"},
-    types.Struct.type_id:   {"type": "object"}
-    types.Map.type_id:      {},
+    types.Struct.type_id:   {"type": "object"},
+    types.Map.type_id:      None,
     types.Set.type_id:      {"type": "array"},
     types.List.type_id:     {"type": "array"},
     types.Tuple.type_id:    {"type": "array"},
     types.JSONData.type_id: None
 }
 
-
-
-class JSONFieldData(object):
-
-    def __init__(
-            self,
-            property_name=None,
-            # is_unboxed only makes sense for Struct type fields
-            is_unboxed=False):
-        self.property_name = property_name
-        self.is_unboxed = is_unboxed
-
-
-class JSONTypeData(object):
-
-    def __init__(
-            self,
-            type_name=None):
-        self.type_name = type_name
-
+# the following constants refer to metadata dictionary keys
+# for json-backend-specific information.
+# -- Fields --
+MDK_FIELD_NAME = "field.name"
+# -- Types --
+MDK_TYPE_STRUCT_UNBOXED = "type.struct.unboxed"
 
 def get_field_name(field):
-    if field.metadata and\
-            'json' in field.metadata.backend_data and\
-            field.metadata.backend_data['json'].property_name:
-        return field.metadata.backend_data['json'].property_name
+    if field.metadata:
+        field_name = field.metadata.get_backend_data("json", MDK_FIELD_NAME)
+        if field_name:
+            return field_name
     return field.field_name
 
 
@@ -69,16 +55,10 @@ def get_field_by_name(struct_class, name):
             return field
     return None
 
-
 def is_unboxed_struct_field(field):
     from unimodel.types import Struct
     if not isinstance(field.field_type, Struct):
         return False
     if not field.metadata:
         return False
-    json_backend_data = field.metadata.backend_data.get('json', None)
-    if not json_backend_data:
-        return False
-    if not isinstance(json_backend_data, JSONFieldData):
-        return False
-    return json_backend_data.is_unboxed
+    return field.metadata.get_backend_data("json", MDK_TYPE_STRUCT_UNBOXED)

@@ -241,6 +241,10 @@ class Unimodel(object):
     def get_name(cls):
         return cls.__name__
 
+    @classmethod
+    def is_union(cls):
+        return False
+
 
 class UnimodelUnion(Unimodel):
 
@@ -266,6 +270,10 @@ class UnimodelUnion(Unimodel):
         if not current_field:
             return None
         return self[current_field_name]
+
+    @classmethod
+    def is_union(cls):
+        return True
 
 
 class ModelRegistry(object):

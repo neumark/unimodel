@@ -8,10 +8,9 @@
 
 from unimodel.model import Unimodel, UnimodelUnion, Field, FieldFactory
 from unimodel import types
-from unimodel.backends.json.type_data import JSONFieldData
 from unimodel.metadata import Metadata
+from unimodel.backends.json.type_data import MDK_TYPE_STRUCT_UNBOXED
 import inspect
-
 
 class SchemaObjectMetadata(Unimodel):
     annotations = Field(types.Map(types.UTF8, types.UTF8))
@@ -31,7 +30,7 @@ schema_object_field = Field(
     types.Struct(SchemaObject),
     required=True,
     metadata=Metadata(
-        backend_data={'json': JSONFieldData(is_unboxed=True)}))
+        backend_data={'json': {MDK_TYPE_STRUCT_UNBOXED: True}}))
 
 type_id_enum = types.Enum(types.type_id_to_name_dict())
 
@@ -70,7 +69,7 @@ class Literal(Unimodel):
     metadata = Field(
         types.Struct(SchemaObjectMetadata),
         metadata=Metadata(
-            backend_data={'json': JSONFieldData(is_unboxed=True)}))
+            backend_data={'json': {MDK_TYPE_STRUCT_UNBOXED: True}}))
 
 
 class FieldDef(Unimodel):

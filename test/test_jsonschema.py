@@ -2,9 +2,10 @@ from unittest import TestCase
 from unimodel.backends.json.schema import JSONSchemaWriter
 from unimodel.backends.json.serializer import JSONSerializer
 from test.helpers import flatten
-from test.fixtures import TreeNode, AllTypes, NodeData, data
+from test.fixtures import TreeNode, AllTypes, NodeData, tree_data, all_types_data
 from unimodel.model import Unimodel, Field
 from unimodel.types import *
+from unimodel.metadata import Metadata
 import json
 import jsonschema
 
@@ -39,13 +40,13 @@ class JSONSchemaTestCase(TestCase):
 
     def test_recursive_struct(self):
         """ serialize unicode and binary data """
-        from unimodel.backends.json.type_data import JSONFieldData
+        from unimodel.backends.json.type_data import MDK_FIELD_NAME
 
         NAME = "/-/"
 
         class A(Unimodel):
             a = Field(Map(UTF8, Int), metadata=Metadata(
-                backend_data={'json': JSONFieldData(property_name=NAME)}))
+                backend_data={'json': {MDK_FIELD_NAME: NAME}}))
 
         schema_writer = JSONSchemaWriter()
         schema = schema_writer.get_schema_ast(A)
@@ -57,7 +58,7 @@ class JSONSchemaTestCase(TestCase):
         schema_writer = JSONSchemaWriter()
         schema = schema_writer.get_schema_ast(TreeNode)
         serializer = JSONSerializer()
-        json_data = json.loads(serializer.serialize(data))
+        json_data = json.loads(serializer.serialize(tree_data))
         jsonschema.validate(json_data, schema)
 
     def test_validate_all_types(self):
@@ -65,20 +66,6 @@ class JSONSchemaTestCase(TestCase):
         schema_writer = JSONSchemaWriter()
         schema = schema_writer.get_schema_ast(AllTypes)
         serializer = JSONSerializer()
-        all_types = AllTypes(
-            f_struct=NodeData(),
-            f_union=NodeData(),
-            f_utf8="asdf",
-            f_binary=bin(173),
-            f_int64=2 ** 40,
-            f_int32=2 ** 28,
-            f_int16=2 ** 12,
-            f_int8=4,
-            f_double=3.14,
-            f_enum=3,
-            f_list=[1, 2, 3, 4],
-            f_set=set([1, 2, 3]),
-            f_map={"a": 1}
-        )
-        json_data = json.loads(serializer.serialize(all_types))
-        jsonschema.validate(json_data, schema)
+        for ix in xrange(0, len(all_types_data)):
+            json_data = json.loads(serializer.serialize(all_types_data[ix]))
+            jsonschema.validate(json_data, schema)
