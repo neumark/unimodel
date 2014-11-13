@@ -1,6 +1,5 @@
 import sys
 import copy
-from unimodel.metadata import Metadata
 from unimodel.validation import ValidationException
 
 
@@ -79,13 +78,13 @@ class Field(object):
         self.field_name = field_name
         self.default = default
         self.required = required
-        self.metadata = metadata or Metadata()
+        self.metadata = metadata
 
     def validate(self, value):
         # first, validate the type of the value
         self.field_type.validate(value)
         # then run any potential custom validators on the field
-        if self.metadata.validators:
+        if self.metadata and self.metadata.validators:
             for validator in self.metadata.validators:
                 validator.validate(value)
 
@@ -114,6 +113,7 @@ class Unimodel(object):
 
     def __init__(self, **kwargs):
         self._model_data = {}
+        self._value_converter = None
 
         for field_name, value in kwargs.iteritems():
             setattr(self, field_name, value)
@@ -164,23 +164,45 @@ class Unimodel(object):
         return iter([(self._fields_by_id[i[0]].field_name, i[1])
                      for i in self._model_data.items()])
 
+    def _set_value_converter(self, conv):
+        # This is a huge hack in order to get Thrift to play
+        # nicely with some basic things like unicode (and some
+        # non-basic things like JSONData fields).
+        # a converter class can be set which __getattribute__
+        # and __setattr__ invoke when passing data to and from
+        # the internal _model_data dictionary.
+        self._value_converter = conv
+
+
     def __getattribute__(self, name):
         # check in model_data first
         fields_by_name = object.__getattribute__(self, '_fields_by_name')
         # Note: In a try ... raise block because reading of _model_data
         # raises an AttributeError in Unimodel.__init__, when the
         # attribute is initialized.
+        value_converter = None
+        try:
+            value_converter = object.__getattribute__(self, '_value_converter')
+        except AttributeError:
+            pass
         try:
             model_data = object.__getattribute__(self, '_model_data')
             # If a model field name matches, return its value
             if name in fields_by_name:
-                return model_data.get(fields_by_name[name].field_id, None)
+                field = fields_by_name[name]
+                value = model_data.get(field.field_id, None)
+                if value_converter is not None:
+                    value = value_converter.from_internal(field, value)
+                return value
         except AttributeError:
             pass
         return object.__getattribute__(self, name)
 
     def __setattr__(self, name, value):
         if hasattr(self, '_model_data') and name in self._fields_by_name:
+            value_converter = getattr(self, '_value_converter', None)
+            if value_converter is not None:
+                value = value_converter.to_internal(self._fields_by_name[name], value)
             self._model_data[self._fields_by_name[name].field_id] = value
             return
         super(Unimodel, self).__setattr__(name, value)

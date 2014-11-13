@@ -9,6 +9,25 @@ Useful: http://www.jsonschema.net/
 Example: from http://json-schema.org/example2.html
 """
 
+
+"""
+A map looks something like this:
+(taken from:
+https://github.com/swagger-api/swagger-spec/blob/master/fixtures/v2.0/json/models/modelWithInt32Map.json)
+{
+  "description": "This is a Map[String, Integer]",
+  "additionalProperties": {
+    "type": "integer",
+    "format": "int32"
+  }
+}"""
+
+MAP_DEFINITION_TEMPLATE = {
+    "description": "map",
+    "additionalProperties": True,
+    "required": [],  # Fill with required field names
+}
+
 STRUCT_MAP_DEFINITION_TEMPLATE = {
     "type": "object",
     "properties": {},  # Fill with field definitions

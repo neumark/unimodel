@@ -3,6 +3,7 @@ from thrift.Thrift import TType
 from unimodel.model import Unimodel, Field
 from unimodel import types
 from unimodel.backends.thrift.serializer import ThriftSpecFactory
+from unimodel.util import get_backend_type
 
 
 class ThriftSpecTestCase(TestCase):
@@ -53,15 +54,17 @@ class ThriftSpecTestCase(TestCase):
         self.assertEquals(
             self.get_field_spec(field),
             (FIELD_ID,
-             FIELD_TYPE.metadata.backend_data['thrift'].type_id,
+             get_backend_type("thrift", field.field_type.type_id),
              FIELD_NAME,
              None,
              DEFAULT))
 
     def test_list_field(self):
         field = Field(types.List(types.Int))
-        self.assertEquals(self.get_field_spec(field),
-                          (-1, TType.LIST, None, [TType.I64, None], None))
+        field_spec = self.get_field_spec(field)
+        self.assertEquals(
+            (-1, TType.LIST, None, [TType.I64, None], None),
+            field_spec)
 
     def test_map_field(self):
         field = Field(types.Map(types.Int, types.UTF8))

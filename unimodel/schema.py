@@ -13,19 +13,6 @@ from unimodel.metadata import Metadata
 import inspect
 
 
-def get_type_id_to_name_dict():
-    type_dict = {}
-    for type_name in dir(types):
-        t = getattr(types, type_name)
-        if inspect.isclass(t) and issubclass(
-                t,
-                types.FieldType) and hasattr(
-                t,
-                'type_id'):
-            type_dict[t.type_id] = t.__name__.lower()
-    return type_dict
-
-
 class SchemaObjectMetadata(Unimodel):
     annotations = Field(types.Map(types.UTF8, types.UTF8))
     # TODO: validators
@@ -46,7 +33,7 @@ schema_object_field = Field(
     metadata=Metadata(
         backend_data={'json': JSONFieldData(is_unboxed=True)}))
 
-type_id_enum = types.Enum(get_type_id_to_name_dict())
+type_id_enum = types.Enum(types.type_id_to_name_dict())
 
 # TypeDef is recursive because of ParametricType
 

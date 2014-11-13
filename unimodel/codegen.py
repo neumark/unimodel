@@ -1,4 +1,6 @@
 from unimodel.schema import *
+from unimodel import types
+import autopep8
 
 IMPORTS = """
 from unimodel.model import Unimodel, Field
@@ -24,16 +26,29 @@ class SchemaCompiler(object):
         self.compiled_structs = {}
 
     def get_type_name(self, field_type):
-        # TODO: STUB
-        return "types.Int"
+        # TODO: metadata!
+        # primitive types
+        if field_type.type_class.primitive_type_id is not None:
+            cons = types.type_id_to_type_constructor(
+                field_type.type_class.primitive_type_id)
+            return "types.%s" % cons.__name__
+        if field_type.type_class.parametric_type is not None:
+            cons = types.type_id_to_type_constructor(
+                field_type.type_class.parametric_type.type_id)
+            params = [self.get_type_name(t) for t in field_type.type_class.parametric_type.type_parameters]
+            return "types.%s(%s)" % (cons.__name__, ", ".join(params))
+        if field_type.type_class.enum is not None:
+            return "types.Enum({%s})" % ", ".join(["%s: %s" % (k, repr(v)) for k, v in field_type.type_class.enum.items()])
+        if field_type.type_class.struct_name is not None:
+            return "types.Struct(%s)" % field_type.type_class.struct_name
+        raise Exception("Can't generate code for %s" % field_type)
+
 
     def get_field_declaration(self, field_def):
         name = field_def.common.name
         # When we change the name, we need to record
         # the original name too.
         # TEMPORARY HACK (just to try out compilation)
-        if name in ['in', '$ref']:
-            name = "a"
         field_kwargs = ""
         field_type = self.get_type_name(field_def.field_type)
         source = FIELD_TEMPLATE % {
@@ -55,7 +70,7 @@ class SchemaCompiler(object):
             'fields': "".join(field_definitions)}
         return class_source
 
-    def generate_model_classes(self):
+    def generate_model_classes(self, run_autopep8=True):
         for struct_def in self.model_schema.structs:
             class_source = self.generate_struct_class(struct_def)
             self.compiled_structs[struct_def.common.name] = class_source
@@ -63,6 +78,8 @@ class SchemaCompiler(object):
         combined_source += IMPORTS
         for src in self.compiled_structs.values():
             combined_source += src
+        if run_autopep8:
+            combined_source = autopep8.fix_code(combined_source)
         return combined_source
 
 

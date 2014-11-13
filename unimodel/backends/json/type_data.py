@@ -1,3 +1,41 @@
+from unimodel import types
+
+# From:
+# github.com/swagger-api/swagger-spec/blob/master/versions/2.0.md#data-types
+# Name     type    format    Comments
+# --       --      --        --
+# integer  integer int32     signed 32 bits
+# long     integer int64     signed 64 bits
+# float    number  float
+# double   number  double
+# string   string
+# byte     string  byte
+# boolean  boolean
+# date     string  date      As defined by full-date - RFC3339
+# dateTime string  date-time As defined by date-time - RFC3339
+
+
+type_id_mapping = {
+    types.Bool.type_id:     {"type": "boolean"},
+    types.Int8.type_id:     {"type": "integer", "format": "int32"},
+    types.Int16.type_id:    {"type": "integer", "format": "int32"},
+    types.Int32.type_id:    {"type": "integer", "format": "int32"},
+    types.Int64.type_id:    {"type": "integer", "format": "int64"},
+    types.BigInt.type_id:   {"type": "integer"},
+    types.Enum.type_id:     {"type": "string"},
+    types.UTF8.type_id:     {"type": "string"},
+    types.Binary.type_id:   {"type": "string", "format": "byte"},
+    types.Double.type_id:   {"type": "number", "format": "double"},
+    types.Struct.type_id:   {"type": "object"}
+    types.Map.type_id:      {},
+    types.Set.type_id:      {"type": "array"},
+    types.List.type_id:     {"type": "array"},
+    types.Tuple.type_id:    {"type": "array"},
+    types.JSONData.type_id: None
+}
+
+
+
 class JSONFieldData(object):
 
     def __init__(

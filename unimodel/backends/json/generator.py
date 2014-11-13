@@ -1,3 +1,100 @@
+"""
+JSONSchema to Unimodel model_schema (basically Unimodel AST) converter.
+This class will create a ModelSchema object from a jsonschema definition.
+ModelSchema object can then be used to compile python code or thift IDL.
+
+There's actually a fundamental mismatch here between encoding-oriented
+IDLs like thrift or Unimodel and validation languages like jsonschema.
+The latter is perfectly happy saying "there may be additional fields here
+which I know nothing about", while the former isn't.
+
+So something like this has -stricly speaking- no Unimodel equivalent:
+    {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": true
+    }
+
+We have the following options:
+1 Store this object as a bytestream along with the struct name or
+  the struct's unimodel definition. This is a fairly general solution
+  and at times may be the best thing to do. However, it's not terribly
+  pretty, and doesn't actually solve the problem, because the incoming
+  JSON could be literally *anything*. Even if we did happend to have a
+  schema for the object, we wouldn't know.
+2 We can cheat and say that 90% of time this will just be a
+  Map(UTF8, UTF8), and that's good enough for us right now.
+  We can fix it when it starts hurting.
+3 We can introduce a type hinting systems, which allows the generator's
+  user to say '#/definitions/blah' could be anything by the schema but
+  I know my data, and it's actually of typa BlahStruct.
+4 We can introduce RawJSON type as a UniModel type (or pass it in as
+  a json-encoded string). Kind of icky, but this seems to be the only
+  solution which solves the most general problem.
+
+I'm going with #2 for now, and hoping to get lots of mileage out of it,
+but eventually I'll probably have to implement #3.
+
+Other mismatches (which *can* be resolved):
+
+anyOf, allOf, oneOf
+---
+These keywords combine several types. They are represented in Unimodel
+as a struct where each field has one of these values. The JSON metadata
+for the struct indicates that it should be "unpacked", so allOf or oneOf
+results in the fields of the referenced types being present in the JSON
+directly (without the parent type).
+anyOf is also represented as a struct (a union), but the json reader has
+to try to match all the fields in the struct individually and move on
+to the next candidate if the current field does not match. Only of the
+fields should match the incoming data.
+
+tuples
+---
+Thrift and Unimodel considers a list a collection of elements each
+with one type. Jsonschema offer tuples:
+{
+    "type": "array",
+    "items": [
+        {
+            "type": "boolean"
+        },
+        {
+            "type": "integer"
+        },
+        {
+            "type": "string"
+        }
+    ],
+}
+
+Unimodel also has tuples (a struct is generated with a field names
+derived from the tuple element types). It is also possible to have
+additional elements in the tuple with the "additionalItems" keyword:
+
+    "additionalItems": {
+        "type": "boolean",
+        "default": false
+    }
+
+In Unimodel, this becomes an unboxed struct where the first field is the tuple,
+and the second field is a list of elements of the type declared in the 
+"additionalItems" definition.
+
+Reserved field names
+---
+Field names which are reserved words, or simply invalid fieldnames in python
+(eg: $ref, /path/, public) are renamed to something that python can deal with,
+but the field's metadata contains the original field name so read-writing
+JSON still works.
+
+Root struct
+---
+Jsonschema describes a DAG, Unimodel describes a set of structs. In order
+to reproduce the json structure, a Root struct is created (typically named
+Root unless that collides with something).
+"""
+
 import json
 import jsonschema
 from unimodel.schema import *
@@ -16,7 +113,7 @@ public print private protected public raise redo rescue retry register return
 self sizeof static super switch synchronized then this throw transient try
 undef union unless unsigned until use var virtual volatile when while with xor
 yield""".split()
-REF_TEMPLATE = "%(base_uri)s#/definitions/%(name)s"
+REF_TEMPLATE = "%(base_uri)s/definitions/%(name)s"  # base_uri ends in '#'
 DEFAULT_ARRAY_ITEMS = {'type': 'string'}
 
 def walk_json(json_obj, key=""):
@@ -45,33 +142,31 @@ class Reference(object):
     @classmethod
     def make_absolute(cls, base_uri, ref):
         if is_str(ref) and ref.startswith('#'):
-            return "%s%s" % (base_uri, ref)
+            real_base_uri = base_uri
+            if real_base_uri.endswith('#'):
+                real_base_uri = base_uri[:-1]
+            return "%s%s" % (real_base_uri, ref)
         return ref
 
-    def replace_relative_references(self, base_uri, json_value):
+    @classmethod
+    def replace_relative_references(cls, base_uri, json_value):
         # TODO
         for _path, value in walk_json(json_value):
             if isinstance(value, dict) and Reference.REF_ATTR in value:
-                value[Reference.REF_ATTR] = self.make_absolute(
+                value[Reference.REF_ATTR] = cls.make_absolute(
                     base_uri, value[Reference.REF_ATTR])
         return json_value
 
     def resolve(self, refresolver):
         with refresolver.resolving(self.ref) as res:
             if self.is_ref(res):
-                # note that for relative references the resolver's
-                # resolution scope should be prepended, this way
-                # when one jsonschema doc refers to another
-                # which then refers to itself, we keep up and
-                # 'switch docs'.
                 ref = Reference(res)
                 return ref.resolve(refresolver)
+            # It's not enough to call replace_relative_references when
+            # the schema is loaded, because resolve() may be pulling in
+            # fragments from other JSON documents, thus it may contain
+            # relative references.
             return self.replace_relative_references(refresolver.base_uri, res)
-
-
-def relative_name(full_name):
-    """ turns #/definitions/X into X """
-    return full_name.split("/")[-1]
 
 
 class JSONSchemaModelGenerator(object):
@@ -93,54 +188,64 @@ class JSONSchemaModelGenerator(object):
     # based on the table above. Unimodel names take from
     # unimodel.schema.type_id_enum
     JSON_TO_UNIMODEL_TYPE = {
-        ('integer', None): 'int64',
-        ('integer', 'int32'): 'int32',
-        ('integer', 'int64'): 'int64',
-        ('number', None): 'double',
-        ('number', 'float'): 'double',
-        ('number', 'double'): 'double',
-        ('string', None): 'utf8',
-        ('string', 'byte'): 'binary',
-        ('string', 'date'): 'utf8',  # TODO: make this a date UTF8 subclass
-        # TODO: make this a date-time UTF8 subclass
-        ('string', 'date-time'): 'utf8',
-        ('string', 'uri'): 'utf8',  # TODO: make this a URI UTF8 subclass
-        ('string', 'email'): 'utf8',  # TODO: make this an email UTF8 subclass
-        ('string', 'regex'): 'utf8',  # TODO: make this an email UTF8 subclass
-        ('boolean', None): 'bool',
-        ('array', None): 'list',
+    #   type        format       unimodel type
+        ('integer', None):       'int64',
+        ('integer', 'int32'):    'int32',
+        ('integer', 'int64'):    'int64',
+        ('number', None):        'double',
+        ('number', 'float'):     'double',
+        ('number', 'double'):    'double',
+        ('string', None):        'utf8',
+        ('string', 'byte'):      'binary',
+        ('string', 'date'):      'utf8', # TODO: make this a date UTF8 subclass
+        ('string', 'date-time'): 'utf8', # TODO: make this a date-time UTF8 subclass
+        ('string', 'uri'):       'utf8', # TODO: make this a URI UTF8 subclass
+        ('string', 'email'):     'utf8', # TODO: make this an email UTF8 subclass
+        ('string', 'regex'):     'utf8', # TODO: make this an email UTF8 subclass
+        ('boolean', None):       'bool',
+        ('array', None):         'list',
         # 'object' can mean map or struct, but structs are
         # listed directly under 'definitions', everywhere else,
         # they are $ref'd.
-        ('object', None): 'map'
+        ('object', None):        'map'
         # Enums have the 'string' type in jsonschema. An additional
         # 'enum' property identifies them as such.
     }
 
     def __init__(self, name, schema):
         self.name = name
-        self.schema = schema
         self.base_uri = schema.get('id', '')
+        # replace all relative references with absolute refs to avoid
+        # clashes in self.definitions
+        self.schema = Reference.replace_relative_references(self.base_uri, schema)
+        # maps full jsonschema fragment path to internal structure,
+        # for example a StructDef or a TypeDef.
         self.definitions = {}
         self.refresolver = RefResolver.from_schema(schema)
 
     def is_defined(self, name):
         return name in self.definitions
 
+    def generate_enum(self, definition):
+        enum = definition['enum']
+        return TypeDef(type_class=TypeClass(
+            enum=dict(zip(
+                xrange(0, len(enum)),
+                enum))))
+
     def generate_type_def(self, definition):
-        # TODO: fix anyOf, allOf and not!
+        """ Generates a TypeDef object based on a 
+            JSONSchema definition. """
+        # we should always be getting a dict
+        assert isinstance(definition, dict)
+        if 'enum' in definition:
+            return self.generate_enum(definition)
         if 'type' not in definition:
             raise Exception(
                 "Cannot process type definition %s" %
                 json.dumps(definition))
         json_type = definition['type']
         json_format = definition.get('format', None)
-        enum = definition.get('enum', None)
-        if enum:
-            return TypeDef(type_class=TypeClass(
-                enum=dict(zip(
-                    xrange(0, len(enum)),
-                    enum))))
         type_name = self.JSON_TO_UNIMODEL_TYPE[(json_type, json_format)]
         type_id = type_id_enum.name_to_key(type_name)
         # note: type_name will never be "struct" because
@@ -159,7 +264,6 @@ class JSONSchemaModelGenerator(object):
                         type_id=type_id,
                         type_parameters=[
                             self.get_field_type(
-                                None,
                                 definition.get(
                                     'items',
                                     DEFAULT_ARRAY_ITEMS))])))
@@ -177,8 +281,8 @@ class JSONSchemaModelGenerator(object):
                         self.generate_type_def({"type": "string"}),
                         self.generate_type_def({"type": "string"})])))
 
-    def get_field_type(self, name, definition):
-        field_type_obj = self.process_definition(name, definition)
+    def get_field_type(self, definition):
+        field_type_obj = self.process_definition(None, definition)
         # if field_type_obj is a StructDef, we need to convert it
         # to a TypeDef object.
         if isinstance(field_type_obj, StructDef):
@@ -195,13 +299,13 @@ class JSONSchemaModelGenerator(object):
 
     def generate_field(self, name, definition, required=False):
         field_def = FieldDef(
-            field_type=self.get_field_type(name, definition),
-            common=SchemaObject(name=relative_name(name)),
+            field_type=self.get_field_type(definition),
+            common=SchemaObject(name=self.relative_name(name)),
             required=required)
         return field_def
 
     def generate_struct(self, name, definition, struct_def):
-        struct_def.common = SchemaObject(name=relative_name(name))
+        struct_def.common = SchemaObject(name=self.relative_name(name))
         struct_def.fields = []
         required_fields = definition.get('required', [])
         for field_name, field_definition in definition.get(
@@ -213,62 +317,79 @@ class JSONSchemaModelGenerator(object):
             struct_def.fields.append(field_def)
         return struct_def
 
-    def field_name_from_type(self, field_type, existing_names=None):
+    @classmethod
+    def ensure_nonexisting(cls, original_name, existing_names=None):
         existing_names = [] if existing_names is None else existing_names
-        def ensure_nonexisting(original_name):
-            name = original_name
-            counter = 0
-            while name in existing_names:
-                name = "%s%s" % (original_name, counter)
-                counter += 1
-            existing_names.append(name)
-            return name
+        name = original_name
+        counter = 0
+        while name in existing_names or name in RESERVED_NAMES:
+            name = "%s%s" % (original_name, counter)
+            counter += 1
+        existing_names.append(name)
+        return name
+
+    @classmethod
+    def relative_name(cls, full_name):
+        """ turns #/definitions/X into X """
+        if full_name is None:
+            import pdb;pdb.set_trace()
+        return full_name.split("/")[-1]
+
+    def field_name_from_type(self, field_type, existing_names=None):
         # primitive types
         if field_type.type_class.primitive_type_id is not None:
-            return ensure_nonexisting(type_id_enum.key_to_name(
-                field_type.type_class.primitive_type_id))
+            return self.ensure_nonexisting(type_id_enum.key_to_name(
+                field_type.type_class.primitive_type_id), existing_names)
         if field_type.type_class.enum is not None:
-            return ensure_nonexisting('enum')
+            return self.ensure_nonexisting('enum', existing_names)
         if field_type.type_class.struct_name is not None:
-            return ensure_nonexisting(field_type.type_class.struct_name)
+            return self.ensure_nonexisting(field_type.type_class.struct_name, existing_names)
         # parametric types
         name_parts = [type_id_enum.key_to_name(
             field_type.type_class.parametric_type.type_id)]
         for t in field_type.type_class.parametric_type.type_parameters:
             name_parts.append(self.field_name_from_type(t))
-        return ensure_nonexisting("_".join(name_parts))
+        return self.ensure_nonexisting("_".join(name_parts), existing_names)
 
-    def generate_composite_struct(self, name, definition, composition_type):
+    def get_composite_struct_name(self, composite_struct):
+        # TODO: we may have to populate 'existing_names' with short names
+        # of currently defined structs.
+        return  self.ensure_nonexisting("_".join(["struct"] +
+            [self.field_name_from_type(f.field_type) for f in composite_struct.fields]), [])
+
+
+    def generate_composite_struct(self, definition, composition_type):
         """ generates StructDefs for anyOf, allOf and oneOf """
         # TODO: differentiate based on composition_type:
         # oneOf: type union (formerly called unboxed union)
         # allOf, anyOf: unboxed struct
-        field_types = [self.get_field_type(None, d)
+        field_types_all = [self.get_field_type(d)
                        for d in definition[composition_type]]
-        field_list = []
+        # default value definitions like {'default': 0}
+        # result in extra Literal types. get_field_type
+        # returns None for them. We can ignore them
+        # as long as we don't claim to do jsonschema validation.
+        field_types = [f for f in field_types_all if f is not None]
+        # if there is only a single field type, there is no need
+        # to create a composite struct
+        if len(field_types) == 1:
+            return field_types[0]
+        # generate a name for each field based on its type
+        composite_struct = StructDef(fields=[])
         existing_field_names = []
         for field_type in field_types:
-            # default value definitions like {'default': 0}
-            # result in extra Literal types. get_field_type
-            # returns None for them. We can ignore them
-            # as long as we don't claim to do jsonschema validation.
-            if field_type is None:
-                continue
             field_name = self.field_name_from_type(
                 field_type,
                 existing_field_names)
-            field_list.append(
+            composite_struct.fields.append(
                 FieldDef(
                     common=SchemaObject(name=field_name),
                     required=False,
                     field_type=field_type))
-        # if field_list only has a single field, we don't need
-        # a composite struct.
-        if len(field_list) == 1:
-            return field_list[0].field_type
-        return StructDef(
-            common=SchemaObject(name=relative_name(name)),
-            fields=field_list)
+        # name the newly created composite field type
+        composite_struct.common=SchemaObject(name=self.relative_name(
+            self.get_composite_struct_name(composite_struct)))
+        return composite_struct
 
     def generate_tuple(self, name, definition):
         """ generates StructDefs for anyOf, allOf and oneOf """
@@ -298,7 +419,7 @@ class JSONSchemaModelGenerator(object):
                 name,
                 StructDef(
                     common=SchemaObject(
-                        name=relative_name(name)),
+                        name=self.relative_name(name)),
                     fields=[]))
         # recursively process references
         if Reference.is_ref(definition):
@@ -309,7 +430,8 @@ class JSONSchemaModelGenerator(object):
                 resolved_definition = ref.resolve(self.refresolver)
                 result = self.process_definition(ref.ref, resolved_definition)
                 return self.save_type_def(ref.ref, result)
-        # maps
+        # Maps and Structs are pretty similar in jsonschema (they're both 'object'
+        # values in JSON).         # 
         if 'patternProperties' in definition:
             return self.save_type_def(
                 name,
@@ -319,12 +441,18 @@ class JSONSchemaModelGenerator(object):
         # composite structs / unions
         for composition_type in ['allOf', 'oneOf', 'anyOf']:
             if composition_type in definition:
-                return self.save_type_def(
-                    name,
-                    self.generate_composite_struct(
-                        name,
-                        definition,
-                        composition_type))
+                composite_struct_def = self.generate_composite_struct(
+                    definition,
+                    composition_type)
+                # generate_composite_struct will give a regular TypeDef
+                # if only a single field is defined in the composite
+                # struct. So despite the name, composite_struct_def
+                # isn't always a StructDef.
+                if isinstance(composite_struct_def, StructDef):
+                    self.save_type_def(
+                        self.full_name(composite_struct_def.common.name),
+                        composite_struct_def)
+                return composite_struct_def
         # tuples
         if 'additionalItems' in definition:
             return self.save_type_def(
@@ -341,19 +469,18 @@ class JSONSchemaModelGenerator(object):
         if definition['type'] == 'object':
             # generate_struct save the type definition itself to handle
             # recursive types
+            struct_name = self.relative_name(name)
             self.definitions[name] = StructDef()
             return self.generate_struct(
-                name,
+                struct_name,
                 definition,
                 self.definitions[name])
         # all other types, which can be handled in a fairly uniform
         # matter: enums, lists, sets, primitive types
         return self.save_type_def(name, self.generate_type_def(definition))
 
-    def make_unique_name(self, name):
-        while name in self.definitions:
-            name += "_"
-        return name                
+    def full_name(self, name):
+        return REF_TEMPLATE % {'base_uri': self.base_uri, 'name': name}
 
     def generate_model_schema(self):
         # generate models for structs in definitions
@@ -362,10 +489,9 @@ class JSONSchemaModelGenerator(object):
             description=self.schema.get('description', ''))
         # process schema definitions
         for name, definition in self.schema.get('definitions', {}).items():
-            full_name = REF_TEMPLATE % {'base_uri': self.base_uri, 'name': name}
-            self.process_definition(full_name, definition)
+            self.process_definition(self.full_name(name), definition)
         # process schema root object
-        root_name = self.make_unique_name("Root")
+        root_name = self.ensure_nonexisting(self.full_name("Root"), self.schema.get('definitions', {}).keys())
         self.process_definition(root_name, self.schema)
         model_schema.root_struct_name = root_name
         model_schema.structs = [

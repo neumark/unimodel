@@ -22,18 +22,8 @@ def print_model_schema_json(model_schema):
 
 class JSONSchemaGenerate(TestCase):
 
-    def test_simple_struct(self):
-        schema_writer = JSONSchemaWriter()
-        schema = schema_writer.get_schema_ast(TreeNode)
-        generator = JSONSchemaModelGenerator('untitled', schema)
-        serializer = JSONSerializer()
-        json_data = json.loads(
-            serializer.serialize(
-                generator.generate_model_schema()))
-
-    def test_oneOf(self):
-        # from http://json-schema.org/example2.html
-        schema = json.loads("""
+    # from http://json-schema.org/example2.html
+    schema = json.loads("""
         {
             "id": "http://some.site.somewhere/entry-schema#",
             "$schema": "http://json-schema.org/draft-04/schema#",
@@ -59,10 +49,34 @@ class JSONSchemaGenerate(TestCase):
             }
         }
         """)
-        generator = JSONSchemaModelGenerator('x', schema)
+
+    def test_simple_struct(self):
+        schema_writer = JSONSchemaWriter()
+        schema = schema_writer.get_schema_ast(TreeNode)
+        generator = JSONSchemaModelGenerator('untitled', schema)
+        serializer = JSONSerializer()
+        json_data = json.loads(
+            serializer.serialize(
+                generator.generate_model_schema()))
+
+    def test_oneOf(self):
+        generator = JSONSchemaModelGenerator('x', self.schema)
         model_schema = generator.generate_model_schema()
-        # TODO: assertions on generated model_schema
-        print_model_schema_json(model_schema)
+        #print_model_schema_json(model_schema)
+        # verify structs to be
+        # - everything under "definitions"
+        # - Root
+        # - composite structs (in this case
+        #   struct_diskDevice_diskUUID_nfs_tmpfs)
+        self.assertEquals(
+            sorted([s.common.name for s in model_schema.structs]),
+            [
+                'Root', 
+                'diskDevice',
+                'diskUUID',
+                'nfs',
+                'struct_diskDevice_diskUUID_nfs_tmpfs',
+                'tmpfs'])
 
 
     def test_swagger_struct(self):
@@ -81,7 +95,8 @@ class JSONSchemaGenerate(TestCase):
             sort_keys=True,
             indent=4,
             separators=(',', ': '))
-        print output_json
-        #python_source = SchemaCompiler(model_schema).generate_model_classes()
-        #module = load_module(model_schema.common.name, python_source)
+        #print output_json
+        python_source = SchemaCompiler(model_schema).generate_model_classes()
+        # print python_source
+        # module = load_module(model_schema.common.name, python_source)
         #print dir(module)
