@@ -255,6 +255,10 @@ class JSONSerializer(Serializer):
             return self.readMap(type_definition, value)
         if isinstance(type_definition, types.List):
             return self.readList(type_definition, value)
+        if isinstance(type_definition, types.JSONData):
+            return value
+        if isinstance(type_definition, types.Tuple):
+            return self.readTuple(type_definition, value)
         raise Exception(
             "Cannot read type %s (value is %s)" %
             (str(type_definition), str(value)))
@@ -308,5 +312,20 @@ class JSONSerializer(Serializer):
                 element = self.readField(element_type, encoded_element)
             result.append(element)
             ix += 1
+        result = type_definition.get_python_type()(result)
+        type_definition.validate(result)
+        return result
+
+    def readTuple(self, type_definition, collection):
+        self.assert_type(list, collection)
+        result = []
+        ix = 0
+        for encoded_element in collection:
+            element_type = type_definition.type_parameters[ix]
+            with self.context.context(ix, element_type, encoded_element):
+                element = self.readField(element_type, encoded_element)
+            result.append(element)
+            ix += 1
+        result = tuple(result)
         type_definition.validate(result)
         return result

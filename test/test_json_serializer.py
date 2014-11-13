@@ -1,7 +1,7 @@
 from unittest import TestCase
 from unimodel.backends.json.serializer import JSONSerializer, JSONValidationException
 from test.helpers import flatten
-from test.fixtures import TreeNode, tree_data
+from test.fixtures import TreeNode, tree_data, all_types_data
 from unimodel.model import Unimodel, Field
 from unimodel.types import *
 from unimodel.backends.json.type_data import MDK_FIELD_NAME, MDK_TYPE_STRUCT_UNBOXED
@@ -46,7 +46,7 @@ class JSONSerializerTestCase(TestCase):
             pass
         self.assertTrue(isinstance(exc, ValueTypeException))
 
-    def test_json_serialize(self):
+    def test_serialize_tree_data(self):
         """ serialize a complex recursive datatype into JSON """
         pre_flattened = flatten(tree_data)
         serializer = JSONSerializer()
@@ -54,6 +54,16 @@ class JSONSerializerTestCase(TestCase):
         d = serializer.deserialize(TreeNode, s)
         self.assertEquals(d.__class__, TreeNode)
         post_flattened = flatten(d)
+
+    def test_serialize_all_types_data(self):
+        """ serialize a complex recursive datatype into JSON """
+        serializer = JSONSerializer()
+        for ix in xrange(0, len(all_types_data)):
+            s = serializer.serialize(all_types_data[ix])
+            d = serializer.deserialize(all_types_data[ix].__class__, s)
+            self.assertEquals(d, all_types_data[ix])
+
+
 
     def test_read_validation(self):
         class A(Unimodel):
