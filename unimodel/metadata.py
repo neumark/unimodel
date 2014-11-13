@@ -11,7 +11,6 @@ class Metadata(object):
             annotations=None,
             backend_data=None):
         self.validators = validators or []
-        self.annotations = annotations or []
         self.backend_data = backend_data or {}
 
     def get_backend_data(self, backend, key):

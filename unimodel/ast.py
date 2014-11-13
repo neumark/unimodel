@@ -13,7 +13,6 @@ from unimodel.backends.json.type_data import MDK_TYPE_STRUCT_UNBOXED
 import inspect
 
 class SchemaObjectMetadata(Unimodel):
-    annotations = Field(types.Map(types.UTF8, types.UTF8))
     # TODO: validators
     backend_data = Field(
         types.Map(
@@ -85,7 +84,7 @@ class StructDef(Unimodel):
     fields = Field(types.List(types.Struct(FieldDef)), required=True)
 
 
-class ModelSchema(Unimodel):
+class SchemaAST(Unimodel):
     common = schema_object_field
     description = Field(types.UTF8)
     structs = Field(types.List(types.Struct(StructDef)))
