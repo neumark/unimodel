@@ -2,7 +2,7 @@ from unittest import TestCase
 import json
 import jsonschema
 from unimodel.backends.json.serializer import JSONSerializer
-from unimodel.backends.json.schema import JSONSchemaWriter
+from unimodel.backends.json.schema_writer import JSONSchemaWriter
 from unimodel.backends.json.generator import JSONSchemaModelGenerator, walk_json
 from test.helpers import flatten
 from test.fixtures import TreeNode, AllTypes, NodeData, tree_data

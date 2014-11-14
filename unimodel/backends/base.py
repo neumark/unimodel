@@ -19,24 +19,23 @@ class Serializer(object):
 
 
 class SchemaWriter(object):
+    """ A schemawriter gets a SchemaAST object and produces a 
+        schema (jsonschema, thrift, python code). """
 
     def __init__(
             self,
-            name=None,
-            description=None,
-            struct_classes=None,
+            ast,
             model_registry=None):
-        self.name = name or "untitled"
-        self.description = description or "generated %s" % str(
-            datetime.datetime.now())
-        self.struct_classes = struct_classes or set()
+        self.ast = ast
         self.model_registry = model_registry or ModelRegistry()
 
-    def add_struct_class(self, struct_class):
-        self.struct_classes.add(struct_class)
-
-    def get_schema_ast(self):
+    def get_schema(self):
         raise NotImplementedError()
 
-    def get_schema_text(self):
+class SchemaReader(object):
+    """ A schemareader gets an external schema (thrift, jsonschema
+    or python code) and outputs the corresponding SchemaAST
+    datastructure. """
+
+    def get_ast(self):
         raise NotImplementedError()

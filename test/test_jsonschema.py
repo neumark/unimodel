@@ -1,5 +1,5 @@
 from unittest import TestCase
-from unimodel.backends.json.schema import JSONSchemaWriter
+from unimodel.backends.json.schema_writer import JSONSchemaWriter
 from unimodel.backends.json.serializer import JSONSerializer
 from test.helpers import flatten
 from test.fixtures import TreeNode, AllTypes, NodeData, tree_data, all_types_data
