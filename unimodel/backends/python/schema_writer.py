@@ -7,22 +7,29 @@ from unimodel.model import Unimodel, Field
 from unimodel import types
 """
 
+ALL_TEMPLATE = """
+__all__ = [
+%(classes)s
+]"""
+
 CLASS_TEMPLATE = """
 class %(name)s(Unimodel):
 %(fields)s
 """
 
-FIELD_TEMPLATE = "    %(name)s = Field(%(field_type)s%(field_kwargs)s)\n"
-EMPTY_CLASS_BODY = "    pass\n"
+DEFAULT_INDENT = "    "
+
+FIELD_TEMPLATE = "%(indent)s%(name)s = Field(%(field_type)s%(field_kwargs)s)\n"
+EMPTY_CLASS_BODY = "%(indent)spass\n"
 
 
-class SchemaCompiler(object):
+class PythonSchemaWriter(object):
 
     """ Generates python code defining Unimodel classes
         based on the AST provided by the Schema generator. """
 
-    def __init__(self, model_schema):
-        self.model_schema = model_schema
+    def __init__(self, schema_ast):
+        self.schema_ast = schema_ast
         self.compiled_structs = {}
 
     def get_type_name(self, field_type):
@@ -52,6 +59,7 @@ class SchemaCompiler(object):
         field_kwargs = ""
         field_type = self.get_type_name(field_def.field_type)
         source = FIELD_TEMPLATE % {
+            'indent': DEFAULT_INDENT,
             'name': name,
             'field_type': field_type,
             # Note: field_kwargs should start with a leading comma if
@@ -64,30 +72,33 @@ class SchemaCompiler(object):
         field_definitions = [
             self.get_field_declaration(f) for f in struct_def.fields]
         if not field_definitions:
-            field_definitions = [EMPTY_CLASS_BODY]
+            field_definitions = [EMPTY_CLASS_BODY % {'indent': DEFAULT_INDENT}]
         class_source = CLASS_TEMPLATE % {
             'name': name,
             'fields': "".join(field_definitions)}
         return class_source
 
-    def generate_model_classes(self, run_autopep8=True):
-        for struct_def in self.model_schema.structs:
+    def generate_module_source(self, run_autopep8=True):
+        for struct_def in self.schema_ast.structs:
             class_source = self.generate_struct_class(struct_def)
             self.compiled_structs[struct_def.common.name] = class_source
         combined_source = ""
         combined_source += IMPORTS
+        class_name_list = ",\n".join(["'%s'" % k for k in self.compiled_structs.keys()])
+        combined_source += ALL_TEMPLATE % {'classes': class_name_list}
         for src in self.compiled_structs.values():
             combined_source += src
         if run_autopep8:
             combined_source = autopep8.fix_code(combined_source)
         return combined_source
 
-
-def load_module(module_name, source):
-    # from http://stackoverflow.com/a/3799609
-    import imp
-    import sys
-    new_module = imp.new_module(module_name)
-    exec source in new_module.__dict__
-    sys.modules[module_name] = new_module
-    return new_module
+    def get_module(self):
+        source = self.generate_module_source()
+        # from http://stackoverflow.com/a/3799609
+        import imp
+        import sys
+        module_name = self.schema_ast.common.name
+        new_module = imp.new_module(module_name)
+        exec source in new_module.__dict__
+        sys.modules[module_name] = new_module
+        return new_module

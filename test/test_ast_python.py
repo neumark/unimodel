@@ -1,12 +1,13 @@
 from unittest import TestCase
 from unimodel.backends.python.schema_reader import PythonSchemaReader
+from unimodel.backends.python.schema_writer import PythonSchemaWriter
 from test.fixtures import TreeNode, AllTypes, NodeData, A, TestUnion, tree_data, all_types_data
 
 
 class PythonSchemaReaderTestCase(TestCase):
 
     def test_single_struct(self):
-        """ serialize unicode and binary data """
+        """ Make a StructDef out of a Unimodel class """
         schema_reader = PythonSchemaReader(NodeData)
         ast = schema_reader.get_ast()
         self.assertEquals(ast.root_struct_name, NodeData.get_name())
@@ -17,8 +18,6 @@ class PythonSchemaReaderTestCase(TestCase):
         # the generated code (they should be the same).
 
     def test_all_fields(self):
-        """ tests whether dependant structs are detected
-            and pulled into the schema """
         schema_reader = PythonSchemaReader(AllTypes)
         ast = schema_reader.get_ast()
         self.assertEquals(ast.root_struct_name, AllTypes.get_name())
@@ -61,3 +60,31 @@ class PythonSchemaReaderTestCase(TestCase):
             NodeData.get_name()])
         self.assertEquals(
                 struct_names, expected_struct_names)
+
+    def test_read_write_identical_fields(self):
+        """ Class -> AST -> Class should yield same fields """
+        schema_reader = PythonSchemaReader(NodeData)
+        ast = schema_reader.get_ast()
+        schema_writer = PythonSchemaWriter(ast)
+        module = schema_writer.get_module()
+        self.assertTrue(hasattr(module, 'NodeData'))
+        # assert field names are the same
+        self.assertEquals(
+                sorted([f.field_name for f in NodeData.get_field_definitions()]),
+                sorted([f.field_name for f in module.NodeData.get_field_definitions()]))
+        # assert field types are the same
+        for field in NodeData.get_field_definitions():
+            field_name = field.field_name
+            self.assertEquals(
+                    field.field_type.get_type_name(),
+                    module.NodeData.get_field_definition(field_name).field_type.get_type_name())
+
+    def test_read_write_identical_all_types(self):
+        """ Class -> AST -> Class works for all field types """
+        schema_reader = PythonSchemaReader(AllTypes)
+        ast = schema_reader.get_ast()
+        schema_writer = PythonSchemaWriter(ast)
+        print schema_writer.generate_module_source()
+        module = schema_writer.get_module()
+        self.assertTrue(hasattr(module, 'AllTypes'))
+
