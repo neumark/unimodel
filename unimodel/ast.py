@@ -23,6 +23,8 @@ class SchemaObjectMetadata(Unimodel):
 
 class SchemaObject(Unimodel):
     name = Field(types.UTF8, required=True)
+    namespace = Field(types.List(types.UTF8))
+    uri = Field(types.UTF8)
     metadata = Field(types.Struct(SchemaObjectMetadata))
 
 schema_object_field = Field(
@@ -73,6 +75,7 @@ class Literal(Unimodel):
 
 class FieldDef(Unimodel):
     common = schema_object_field
+    field_id = Field(types.Int)
     field_type = Field(types.Struct(TypeDef), required=True)
     required = Field(types.Bool, default=False)
     default = Field(types.Struct(Literal))

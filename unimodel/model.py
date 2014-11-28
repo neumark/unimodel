@@ -1,7 +1,7 @@
 import sys
 import copy
 from unimodel.validation import ValidationException
-
+from unimodel.util import instantiate_if_class
 
 class FieldFactory(object):
 
@@ -69,16 +69,16 @@ class Field(object):
                  metadata=None):
         self.creation_count = Field._field_creation_counter
         Field._field_creation_counter += 1
-        # If they left off the parenthesis, fix it.
-        if isinstance(field_type, type):
-            self.field_type = field_type()
-        else:
-            self.field_type = field_type
+        self.field_type = instantiate_if_class(field_type)
         self.field_id = field_id
         self.field_name = field_name
-        self.default = default
         self.required = required
         self.metadata = metadata
+        # verify that the given default value
+        # is the correct type for this field
+        if default is not None:
+            self.validate(default)
+        self.default = default
 
     def validate(self, value):
         # first, validate the type of the value
@@ -191,6 +191,8 @@ class Unimodel(object):
             if name in fields_by_name:
                 field = fields_by_name[name]
                 value = model_data.get(field.field_id, None)
+                if value is None:
+                    value = field.default
                 if value_converter is not None:
                     value = value_converter.from_internal(field, value)
                 return value
@@ -240,6 +242,10 @@ class Unimodel(object):
     @classmethod
     def get_name(cls):
         return cls.__name__
+
+    @classmethod
+    def get_namespace(cls):
+        return ".".split(cls.__module__)
 
     @classmethod
     def is_union(cls):

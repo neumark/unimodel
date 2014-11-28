@@ -82,7 +82,7 @@ import jsonschema
 from unimodel.schema import *
 from unimodel import types
 from jsonschema.validators import RefResolver
-from unimodel.validation import is_str
+from unimodel.util import is_str
 
 # Thanks to Randy Abernethy for the list of reserved keywords
 RESERVED_NAMES = """BEGIN END __CLASS__ __DIR__ __FILE__ __FUNCTION__ __LINE__

@@ -1,16 +1,11 @@
 from unimodel.validation import (ValidationException, ValueTypeException)
-from unimodel.validation import is_str
+from unimodel.util import is_str, instantiate_if_class
 
 # --
 # UTILITY FUNCTIONS
 # --
 
-def instantiate_if_class(t):
-    # If they left off the parenthesis (eg: Field(Int)),
-    # instantiate the type class.
-    if isinstance(t, type):
-        return t()
-    return t
+
 
 def type_id_to_type_constructor(type_id):
     import sys

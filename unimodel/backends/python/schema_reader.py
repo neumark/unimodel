@@ -1,7 +1,7 @@
 from unimodel.backends.base import SchemaReader
 from unimodel import types
 from unimodel.backends.json.type_data import get_field_name
-from unimodel.util import get_backend_type
+from unimodel.util import get_backend_type, is_str
 from unimodel import ast
 from unimodel.model import ModelRegistry
 import datetime
@@ -16,14 +16,20 @@ class PythonSchemaReader(SchemaReader):
             struct_classes=None,  # additional structures to have in schema
             name=None):
         self.ast = ast.SchemaAST(
-            common=ast.SchemaObject(
-                name=name or root_struct_class.__name__),
+            common=ast.SchemaObject(name=name) if name else self.get_model_schema_object(root_struct_class),
             root_struct_name=root_struct_class.get_name())
         self.root_struct_class = root_struct_class
         self.model_registry = model_registry or ModelRegistry()
         self.struct_classes = struct_classes
         if self.struct_classes is None:
             self.struct_classes = set()
+
+    @classmethod
+    def get_model_schema_object(cls, model_cls):
+        return ast.SchemaObject(
+            name=model_cls.get_name(),
+            namespace=model_cls.get_namespace(),
+            metadata=cls.get_metadata(model_cls)) 
 
     @classmethod
     def get_metadata(cls, obj):
@@ -57,20 +63,33 @@ class PythonSchemaReader(SchemaReader):
         # Note: maybe we should use the fully-qualified name of
         # the class to avoid name clashes
         struct_def = ast.StructDef(
-                common=ast.SchemaObject(
-                    name=struct_class.get_name(),
-                    metadata=self.get_metadata(struct_class)),
+                common=self.get_model_schema_object(struct_class),
                 is_union=struct_class.is_union(),
                 fields=[self.get_field_definition(f) for f in struct_class.get_field_definitions()])
         return struct_def
+
+    @classmethod
+    def get_default_value(cls, py_default_value):
+        if py_default_value is None:
+            return None
+        if is_str(py_default_value):
+            key = 'string'
+        elif type(py_default_value) == int:
+            key = 'integer'
+        elif type(py_default_value) == float:
+            key = 'double'
+        else:
+            raise Exception("value %s of type %s could not be turned into ast.LiteralValue" % (py_default_value, type(py_default_value)))
+        return ast.Literal(literal_value=ast.LiteralValue(**{key: py_default_value}))
 
     def get_field_definition(self, field):
         field_def = ast.FieldDef(
                 common=ast.SchemaObject(
                     name=field.field_name,
                     metadata=self.get_metadata(field)),
-                default=field.default,
+                default=self.get_default_value(field.default),
                 required=field.required,
+                field_id=field.field_id,
                 field_type=self.get_type_definition(field.field_type))
         return field_def
 

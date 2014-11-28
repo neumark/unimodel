@@ -3,7 +3,7 @@ from unimodel import types
 import autopep8
 
 IMPORTS = """
-from unimodel.model import Unimodel, Field
+from unimodel.model import Unimodel, UnimodelUnion, Field, FieldFactory
 from unimodel import types
 """
 
@@ -12,14 +12,20 @@ __all__ = [
 %(classes)s
 ]"""
 
-CLASS_TEMPLATE = """
+CLASS_DECLARATION_TEMPLATE = """
 class %(name)s(Unimodel):
-%(fields)s
+    pass
+"""
+
+STRUCT_DEFINITION_TEMPLATE = """
+field_factory = FieldFactory()
+field_factory.add_fields(%(class_name)s, {
+%(field_definitions)s
+})
 """
 
 DEFAULT_INDENT = "    "
-
-FIELD_TEMPLATE = "%(indent)s%(name)s = Field(%(field_type)s%(field_kwargs)s)\n"
+FIELD_TEMPLATE = "%(indent)s'%(name)s': Field(%(field_type)s%(field_kwargs)s)\n"
 EMPTY_CLASS_BODY = "%(indent)spass\n"
 
 
@@ -53,10 +59,13 @@ class PythonSchemaWriter(object):
 
     def get_field_declaration(self, field_def):
         name = field_def.common.name
-        # When we change the name, we need to record
-        # the original name too.
-        # TEMPORARY HACK (just to try out compilation)
-        field_kwargs = ""
+        field_kwargs = [""]
+        if field_def.field_id is not None:
+            field_kwargs.append("field_id=%s" % field_def.field_id)
+        if field_def.required:
+            field_kwargs.append("required=True")
+        if field_def.default is not None:
+            field_kwargs.append("default=%s" % repr(field_def.default))
         field_type = self.get_type_name(field_def.field_type)
         source = FIELD_TEMPLATE % {
             'indent': DEFAULT_INDENT,
@@ -64,30 +73,44 @@ class PythonSchemaWriter(object):
             'field_type': field_type,
             # Note: field_kwargs should start with a leading comma if
             # not empty.
-            'field_kwargs': field_kwargs}
+            'field_kwargs': " ,".join(field_kwargs)}
         return source
 
-    def generate_struct_class(self, struct_def):
+    def declare_struct_class(self, struct_def):
         name = struct_def.common.name
+        class_source = CLASS_DECLARATION_TEMPLATE % {
+            'name': name}
+        return class_source
+
+    def define_struct_fields(self, struct_def):
+        class_name = struct_def.common.name
         field_definitions = [
             self.get_field_declaration(f) for f in struct_def.fields]
         if not field_definitions:
-            field_definitions = [EMPTY_CLASS_BODY % {'indent': DEFAULT_INDENT}]
-        class_source = CLASS_TEMPLATE % {
-            'name': name,
-            'fields': "".join(field_definitions)}
-        return class_source
+            return ""
+        return STRUCT_DEFINITION_TEMPLATE % {
+                'class_name': class_name,
+                'field_definitions': ",\n".join(field_definitions)}
 
     def generate_module_source(self, run_autopep8=True):
         for struct_def in self.schema_ast.structs:
-            class_source = self.generate_struct_class(struct_def)
-            self.compiled_structs[struct_def.common.name] = class_source
+            self.compiled_structs[struct_def.common.name] = {}
+        # declare classes first
+        for struct_def in self.schema_ast.structs:
+            source = self.declare_struct_class(struct_def)
+            self.compiled_structs[struct_def.common.name]['declaration'] = source
+        # add fields to the already declared classes
+        for struct_def in self.schema_ast.structs:
+            source = self.define_struct_fields(struct_def)
+            self.compiled_structs[struct_def.common.name]['definition'] = source
         combined_source = ""
         combined_source += IMPORTS
         class_name_list = ",\n".join(["'%s'" % k for k in self.compiled_structs.keys()])
         combined_source += ALL_TEMPLATE % {'classes': class_name_list}
         for src in self.compiled_structs.values():
-            combined_source += src
+            combined_source += src['declaration']
+        for src in self.compiled_structs.values():
+            combined_source += src['definition']
         if run_autopep8:
             combined_source = autopep8.fix_code(combined_source)
         return combined_source
