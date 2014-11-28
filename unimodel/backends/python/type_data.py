@@ -27,4 +27,5 @@ type_id_mapping = {
     types.JSONData.type_id: None
 }
 
+MDK_STRUCT_CLASS_BASES = "base_classes"
 

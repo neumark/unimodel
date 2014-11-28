@@ -1,11 +1,11 @@
 from unimodel.backends.base import SchemaReader
 from unimodel import types
 from unimodel.backends.json.type_data import get_field_name
-from unimodel.util import get_backend_type, is_str
+from unimodel.util import get_backend_type, is_str, get_full_classname
 from unimodel import ast
 from unimodel.model import ModelRegistry
 import datetime
-
+from unimodel.backends.python.type_data import MDK_STRUCT_CLASS_BASES
 class PythonSchemaReader(SchemaReader):
     """ The input for this class is a set of Struct definitions.
     It converts these into a SchemaAST. """
@@ -29,7 +29,17 @@ class PythonSchemaReader(SchemaReader):
         return ast.SchemaObject(
             name=model_cls.get_name(),
             namespace=model_cls.get_namespace(),
-            metadata=cls.get_metadata(model_cls)) 
+            metadata=cls.get_metadata(model_cls))
+
+    @classmethod
+    def add_struct_base_classes(cls, struct_class, metadata=None):
+        if metadata is None:
+            metadata = ast.SchemaObjectMetadata()
+        if metadata.backend_data is None:
+            metadata.backend_data = {}
+        metadata.backend_data['python'] = metadata.backend_data.get('python', {})
+        metadata.backend_data['python'][MDK_STRUCT_CLASS_BASES] = ",".join([get_full_classname(c) for c in struct_class.__bases__])
+        return metadata
 
     @classmethod
     def get_metadata(cls, obj):
@@ -39,8 +49,9 @@ class PythonSchemaReader(SchemaReader):
             return None
         if not obj.metadata.backend_data:
             return None
-        return ast.SchemaObjectMetadata(
+        metadata = ast.SchemaObjectMetadata(
             backend_data=obj.metadata.backend_data)
+        return metadata
 
     def get_ast(self):
         # Collect struct dependencies of root struct (if any).
@@ -66,6 +77,7 @@ class PythonSchemaReader(SchemaReader):
                 common=self.get_model_schema_object(struct_class),
                 is_union=struct_class.is_union(),
                 fields=[self.get_field_definition(f) for f in struct_class.get_field_definitions()])
+        struct_def.common.metadata = self.add_struct_base_classes(struct_class, struct_def.common.metadata)
         return struct_def
 
     @classmethod

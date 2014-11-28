@@ -1,9 +1,10 @@
 from unimodel.schema import *
 from unimodel import types
 import autopep8
+from unimodel.backends.python.type_data import MDK_STRUCT_CLASS_BASES
 
-IMPORTS = """
-from unimodel.model import Unimodel, UnimodelUnion, Field, FieldFactory
+MANDATORY_IMPORTS = """
+from unimodel.model import Field, FieldFactory
 from unimodel import types
 """
 
@@ -13,7 +14,7 @@ __all__ = [
 ]"""
 
 CLASS_DECLARATION_TEMPLATE = """
-class %(name)s(Unimodel):
+class %(name)s(%(base_classes)s):
     pass
 """
 
@@ -79,7 +80,8 @@ class PythonSchemaWriter(object):
     def declare_struct_class(self, struct_def):
         name = struct_def.common.name
         class_source = CLASS_DECLARATION_TEMPLATE % {
-            'name': name}
+            'name': name,
+            'base_classes': 'Unimodel'}
         return class_source
 
     def define_struct_fields(self, struct_def):
@@ -91,6 +93,24 @@ class PythonSchemaWriter(object):
         return STRUCT_DEFINITION_TEMPLATE % {
                 'class_name': class_name,
                 'field_definitions': ",\n".join(field_definitions)}
+
+    def base_class_imports(self, structs):
+        # add base class imports
+        fully_qualified_base_classes = {}
+        for struct_def in structs:
+            if struct_def.common.metadata is not None and\
+                    'python' in struct_def.common.metadata.backend_data:
+                full_class_name = struct_def.common.metadata.backend_data['python'].get(MDK_STRUCT_CLASS_BASES, "unimodel.model.Unimodel")
+                name_parts = full_class_name.split(".")
+                module = ".".join(name_parts[:-1])
+                class_name = name_parts[-1]
+                classes_from_module = fully_qualified_base_classes.get(module, set())
+                classes_from_module.add(class_name)
+                fully_qualified_base_classes[module] = classes_from_module
+        imports = ""
+        for module, classes in fully_qualified_base_classes.items():
+            imports += "from %s import %s\n" % (module, ", ".join(sorted(list(classes))))
+        return imports
 
     def generate_module_source(self, run_autopep8=True):
         for struct_def in self.schema_ast.structs:
@@ -104,7 +124,8 @@ class PythonSchemaWriter(object):
             source = self.define_struct_fields(struct_def)
             self.compiled_structs[struct_def.common.name]['definition'] = source
         combined_source = ""
-        combined_source += IMPORTS
+        combined_source += MANDATORY_IMPORTS
+        combined_source += self.base_class_imports(self.schema_ast.structs)
         class_name_list = ",\n".join(["'%s'" % k for k in self.compiled_structs.keys()])
         combined_source += ALL_TEMPLATE % {'classes': class_name_list}
         for src in self.compiled_structs.values():

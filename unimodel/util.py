@@ -18,6 +18,9 @@ def instantiate_if_class(t):
         return t()
     return t
 
+def get_full_classname(cls):
+    return "%s.%s" % (cls.__module__, cls.__name__)
+
 def get_module(module_name):
         __import__(module_name)
         return sys.modules[module_name]
